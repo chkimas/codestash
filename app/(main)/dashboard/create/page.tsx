@@ -6,15 +6,11 @@ import { z } from 'zod'
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
-
-// Local imports
 import { CreateSnippetSchema } from '@/app/lib/definitions'
 import { PROGRAMMING_LANGUAGES } from '@/app/lib/constants'
 import { createSnippet } from '@/app/lib/actions'
 import { getLanguageIcon } from '@/app/lib/icons'
 import { cn } from '@/lib/utils'
-
-// UI Components
 import { Button } from '@/components/ui/button'
 import {
   Form,

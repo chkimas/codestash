@@ -1,16 +1,19 @@
 import { z } from 'zod'
 import { LANGUAGE_VALUES } from '@/app/lib/constants'
 
-// 1. The Shape of the Data in the Database
-export type Snippet = {
+export interface Snippet {
   id: string
   user_id: string
   title: string
   code: string
   language: (typeof LANGUAGE_VALUES)[number]
-  description?: string // Optional
+  description?: string | null
   is_public: boolean
   created_at: string
+  author_name?: string
+  author_image?: string
+  is_favorited?: boolean
+  favorite_count?: number
 }
 
 export type User = {
@@ -20,7 +23,6 @@ export type User = {
   password: string
 }
 
-// 2. Zod Schema for Validation (Used in Forms)
 export const CreateSnippetSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100),
   code: z.string().min(1, 'Code is required').max(5000),
@@ -28,3 +30,15 @@ export const CreateSnippetSchema = z.object({
   description: z.string().optional(),
   is_public: z.boolean()
 })
+
+export const RegisterSchema = z
+  .object({
+    name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+    email: z.string().email({ message: 'Please enter a valid email.' }),
+    password: z.string().min(6, { message: 'Be at least 6 characters long.' }),
+    confirmPassword: z.string().min(6, { message: 'Must be at least 6 characters.' })
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword']
+  })
