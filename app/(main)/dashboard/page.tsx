@@ -2,10 +2,9 @@ import { auth } from '@/auth'
 import sql from '@/app/lib/db'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-// import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { PlusIcon, Code2Icon } from 'lucide-react'
-// import { getLanguageIcon } from '@/app/lib/icons'
+import { Plus, Code2, SearchX, Filter } from 'lucide-react'
 import { SnippetCard } from '@/components/snippet-card'
+import Search from '@/components/search'
 import { Snippet } from '@/app/lib/definitions'
 
 type Props = {
@@ -19,15 +18,16 @@ export default async function Dashboard(props: Props) {
   const query = searchParams?.query || ''
   const session = await auth()
   const userId = session?.user?.id
+
   if (!userId) return null
 
   let snippets: Snippet[] = []
 
   try {
-    let result
+    const searchQuery = query ? `%${query}%` : null
 
-    if (query) {
-      result = await sql`
+    if (searchQuery) {
+      snippets = await sql`
         SELECT 
           s.*, 
           u.name as author_name,
@@ -43,14 +43,14 @@ export default async function Dashboard(props: Props) {
             s.id IN (SELECT snippet_id FROM favorites WHERE user_id = ${userId})
           )
         AND (
-          s.title ILIKE ${`%${query}%`} OR 
-          s.language ILIKE ${`%${query}%`} OR
-          s.description ILIKE ${`%${query}%`}
+          s.title ILIKE ${searchQuery} OR 
+          s.language ILIKE ${searchQuery} OR
+          s.description ILIKE ${searchQuery}
         )
         ORDER BY s.created_at DESC
       `
     } else {
-      result = await sql`
+      snippets = await sql`
         SELECT 
           s.*, 
           u.name as author_name,
@@ -66,74 +66,83 @@ export default async function Dashboard(props: Props) {
         ORDER BY s.created_at DESC
       `
     }
-
-    snippets = result as unknown as Snippet[]
   } catch (error) {
     console.error('Database Error:', error)
   }
+
   const hasSnippets = snippets.length > 0
 
   return (
-    <main className="container mx-auto p-8">
-      <header className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Your Library</h1>
-          <p className="text-muted-foreground mt-1">Manage and organize your code snippets.</p>
+    <main className="min-h-screen bg-background pb-20">
+      <div className="bg-white sticky top-14 z-20">
+        <div className="container mx-auto px-6 max-w-[1600px] h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-neutral-500">
+            <Filter className="h-3.5 w-3.5" />
+            <span className="font-medium text-neutral-900">{snippets.length}</span>
+            <span>items</span>
+          </div>
+
+          <div className="w-full max-w-xs">
+            <Search placeholder="Filter library..." />
+          </div>
         </div>
+      </div>
 
-        {hasSnippets && (
-          <Button asChild className="shrink-0">
-            <Link href="/dashboard/create">
-              <PlusIcon className="h-4 w-4 mr-2" />
-              New Snippet
-            </Link>
-          </Button>
-        )}
-      </header>
-
-      <section aria-label="Snippet List">
+      {/* 2. CONTENT AREA */}
+      <section className="container mx-auto px-6 py-8 max-w-[1600px]">
         {!hasSnippets ? (
-          // Empty State (This looks great as is)
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center bg-slate-50/50 dark:bg-slate-900/20">
-            <div className="rounded-full bg-slate-100 dark:bg-slate-800 p-3 mb-4">
-              <Code2Icon className="h-6 w-6 text-slate-500" aria-hidden="true" />
+          <div className="flex flex-col items-center justify-center min-h-[50vh] border-2 border-dashed border-neutral-100 rounded-2xl bg-neutral-50/30">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm border border-neutral-100 mb-6">
+              {query ? (
+                <SearchX className="h-7 w-7 text-neutral-400" />
+              ) : (
+                <Code2 className="h-7 w-7 text-neutral-400" />
+              )}
             </div>
-            <h2 className="text-lg font-semibold">No snippets yet</h2>
-            <p className="text-sm text-muted-foreground max-w-sm mb-4 mt-1">
-              You haven&apos;t saved any code yet. Create your first snippet to get started.
+
+            <h2 className="text-xl font-semibold text-neutral-900 tracking-tight">
+              {query ? 'No matching snippets' : 'Library is empty'}
+            </h2>
+
+            <p className="text-neutral-500 max-w-md text-center mt-2 mb-8 leading-relaxed">
+              {query
+                ? `We couldn't find any snippets matching "${query}". Try different keywords.`
+                : 'Your personal knowledge base starts here. Save your first reusable component or query.'}
             </p>
-            <Button asChild>
-              <Link href="/dashboard/create">Create Snippet</Link>
-            </Button>
+
+            {/* The ONLY CTA on the screen when empty (besides the nav) */}
+            {!query && (
+              <Button
+                asChild
+                size="lg"
+                className="bg-neutral-900 text-white hover:bg-neutral-800 shadow-xl shadow-neutral-200/50 transition-all hover:-translate-y-0.5"
+              >
+                <Link href="/dashboard/create">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Snippet
+                </Link>
+              </Button>
+            )}
+
+            {query && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  /* logic to clear search needs client component or just Link */
+                }}
+                asChild
+              >
+                <Link href="/dashboard">Clear Search</Link>
+              </Button>
+            )}
           </div>
         ) : (
-          <ul className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {/* {snippets.map((item) => (
-              <li key={item.id} className="h-full">
-                <Link href={`/dashboard/${item.id}`} className="block h-full group">
-                  <Card className="flex flex-col h-full hover:shadow-md transition-shadow cursor-pointer bg-card text-card-foreground">
-                    <CardHeader>
-                      <div className="flex justify-between items-start gap-2">
-                        <CardTitle className="text-lg leading-tight truncate group-hover:text-primary transition-colors">
-                          {item.title}
-                        </CardTitle>
-                        <span className="flex items-center gap-1 shrink-0 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border text-slate-600 dark:text-slate-400 uppercase font-bold text-[10px]">
-                          {getLanguageIcon(item.language)}
-                          {item.language}
-                        </span>
-                      </div>
-                      <CardDescription className="line-clamp-2 min-h-[10]">
-                        {item.description || 'No description provided.'}
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
-                </Link>
-              </li>
-            ))} */}
+          /* GRID STATE */
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {snippets.map((snippet) => (
               <SnippetCard key={snippet.id} snippet={snippet} currentUserId={userId} />
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </main>

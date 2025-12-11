@@ -3,14 +3,12 @@ import Link from 'next/link'
 import sql from '@/app/lib/db'
 import { auth } from '@/auth'
 import { Snippet } from '@/app/lib/definitions'
-import { getLanguageIcon } from '@/app/lib/icons'
 import { deleteSnippet } from '@/app/lib/actions'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { CardContent, Card } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ArrowLeft, Pencil, Trash2, Calendar, Lock, Globe } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { CodeViewer } from '@/components/code-viewer'
+import { getLanguageIcon } from '@/app/lib/icons'
+import { Pencil, Trash2, Calendar, Lock, Globe } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,12 +20,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog'
-
-const formatDate = (date: Date) => {
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium'
-  }).format(date)
-}
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { BackButton } from '@/components/back-button'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -63,99 +57,106 @@ export default async function SnippetDetailPage(props: Props) {
   const isOwner = userId === snippet.user_id
 
   return (
-    <main className="container mx-auto p-8 max-w-5xl">
-      <div className="mb-6">
-        <Button variant="ghost" asChild className="pl-0 transition-all">
-          <Link href="/dashboard">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Library
-          </Link>
-        </Button>
+    <main className="min-h-screen bg-white pb-20">
+      {/* Sticky Header / Breadcrumb */}
+      <div className="sticky top-14 z-30 w-full bg-white/80 backdrop-blur-sm">
+        <div className="container mx-auto px-6 h-12 flex items-center">
+          <BackButton />
+        </div>
       </div>
 
-      <article className="space-y-6">
-        {/* HEADER */}
-        <header className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 border-b pb-6">
-          <div className="space-y-4">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+      <div className="container mx-auto max-w-5xl px-6 py-8">
+        <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-10">
+          <div className="space-y-4 max-w-2xl">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-neutral-900">
               {snippet.title}
             </h1>
 
-            {/* Metadata Row */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              {/* Language */}
+            <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-500">
               <TooltipProvider>
-                <Tooltip>
+                <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200 px-3 py-1 shadow-sm hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70 transition-colors cursor-help"
-                      aria-label={snippet.language}
-                    >
+                    <div className="flex h-8 w-8 items-center justify-center cursor-help">
                       {getLanguageIcon(snippet.language)}
-                    </button>
+                    </div>
                   </TooltipTrigger>
-                  <TooltipContent className="text-xs font-medium capitalize px-2 py-1">
+                  <TooltipContent side="bottom" className="text-xs font-medium capitalize">
                     {snippet.language}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Author */}
               <div className="flex items-center gap-2">
-                <Avatar className="h-6 w-6">
+                <Avatar className="h-5 w-5 border border-neutral-200">
                   <AvatarImage src={snippet.author_image} />
-                  <AvatarFallback className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                  <AvatarFallback className="text-[9px] bg-neutral-100 text-neutral-600 font-medium">
                     {authorInitial}
                   </AvatarFallback>
                 </Avatar>
-                <span>{snippet.author_name || 'Anonymous'}</span>
+                <span className="font-medium text-neutral-700">
+                  {snippet.author_name || 'Anonymous'}
+                </span>
               </div>
 
-              {/* Date */}
+              <span className="text-neutral-300">/</span>
+
+              <div
+                className="flex items-center gap-1.5"
+                title={new Date(snippet.created_at).toLocaleString()}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                <span>
+                  {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(
+                    new Date(snippet.created_at)
+                  )}
+                </span>
+              </div>
+
+              <span className="text-neutral-300">/</span>
+
               <div className="flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" />
-                <time dateTime={new Date(snippet.created_at).toISOString()}>
-                  {formatDate(new Date(snippet.created_at))}
-                </time>
+                {snippet.is_public ? (
+                  <Globe className="h-3.5 w-3.5" />
+                ) : (
+                  <Lock className="h-3.5 w-3.5" />
+                )}
+                <span>{snippet.is_public ? 'Public' : 'Private'}</span>
               </div>
-
-              {/* Privacy Badge */}
-              <Badge variant={snippet.is_public ? 'default' : 'secondary'} className="gap-1">
-                {snippet.is_public ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                {snippet.is_public ? 'Public' : 'Private'}
-              </Badge>
             </div>
           </div>
 
-          {/* ACTIONS (Only for Owner) */}
+          {/* Action Menu (Desktop: Buttons, Mobile: Dropdown could be added if needed) */}
           {isOwner && (
-            <div className="flex items-center gap-2 shrink-0">
-              <Button variant="outline" size="icon" className="h-9 w-9" asChild>
-                <Link href={`/dashboard/edit/${snippet.id}`} aria-label="Edit snippet">
-                  <Pencil className="h-4 w-4" />
+            <div className="flex items-center gap-1">
+              <Button
+                variant="default"
+                size="sm"
+                asChild
+                className="h-9 bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200"
+              >
+                <Link href={`/dashboard/edit/${snippet.id}`}>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Modify
                 </Link>
               </Button>
+              <span className="text-muted-foreground select-none">/</span>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
-                    variant="destructive"
+                    variant="ghost"
                     size="icon"
-                    className="h-9 w-9"
-                    aria-label="Delete snippet"
+                    className="h-9 w-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-neutral-200"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="text-red-600 dark:text-red-400">
-                      Delete snippet?
-                    </AlertDialogTitle>
+                    <AlertDialogTitle>Delete Snippet</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete&nbsp;
-                      <span className="font-semibold text-foreground">“{snippet.title}”</span>. This
-                      action cannot be undone.
+                      Are you sure you want to delete{' '}
+                      <span className="font-medium text-neutral-900">{snippet.title}&quot;</span>
+                      &quot; This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -179,30 +180,18 @@ export default async function SnippetDetailPage(props: Props) {
 
         {/* DESCRIPTION */}
         {snippet.description && (
-          <section className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border text-slate-700 dark:text-slate-300 leading-relaxed">
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-slate-500 mb-2">
-              About this snippet
-            </h3>
-            <p>{snippet.description}</p>
-          </section>
+          <div className="mb-8 max-w-3xl">
+            <p className="text-lg leading-relaxed text-neutral-600 border-l-2 border-neutral-200 pl-4">
+              {snippet.description}
+            </p>
+          </div>
         )}
 
-        {/* CODE BLOCK */}
-        <section aria-label="Code Snippet">
-          <Card className="overflow-hidden border-slate-200 dark:border-slate-800 shadow-sm">
-            <CardContent className="p-0">
-              <div className="flex items-center justify-between px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b">
-                <span className="text-xs font-mono text-muted-foreground">
-                  main.{snippet.language === 'c++' ? 'cpp' : snippet.language}
-                </span>
-              </div>
-              <pre className="overflow-x-auto p-6 text-sm font-mono leading-relaxed bg-slate-950 text-slate-50">
-                <code>{snippet.code}</code>
-              </pre>
-            </CardContent>
-          </Card>
+        {/* MAIN CODE BLOCK */}
+        <section className="w-full">
+          <CodeViewer code={snippet.code} language={snippet.language} className="min-h-[200px]" />
         </section>
-      </article>
+      </div>
     </main>
   )
 }
