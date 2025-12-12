@@ -1,8 +1,0 @@
-import postgres from "postgres";
-
-const sql = postgres(process.env.POSTGRES_URL!, {
-  ssl: "require",
-  prepare: false,
-});
-
-export default sql;

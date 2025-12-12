@@ -1,7 +1,7 @@
-import sql from '@/app/lib/db'
-import { Snippet } from '@/app/lib/definitions'
-import Search from '@/components/search'
-import { SnippetCard } from '@/components/snippet-card'
+import sql from '@/db/client'
+import { Snippet } from '@/lib/definitions'
+import Search from '@/features/snippets/components/search'
+import { SnippetCard } from '@/features/snippets/components/snippet-card'
 import { SearchX, Sparkles } from 'lucide-react'
 import { auth } from '@/auth'
 import { Badge } from '@/components/ui/badge'
@@ -65,7 +65,7 @@ export default async function Home(props: Props) {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="relative border-b border-neutral-200 bg-neutral-50/50 py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]"></div>
 
         <div className="container relative mx-auto px-6 max-w-5xl text-center z-10">
           <Badge
@@ -88,7 +88,7 @@ export default async function Home(props: Props) {
           {/* Elevated Search Container */}
           <div className="max-w-xl mx-auto transform transition-all hover:scale-[1.01]">
             <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-neutral-200 to-neutral-100 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
+              <div className="absolute -inset-1 bg-linear-to-r from-neutral-200 to-neutral-100 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
               <div className="relative bg-white shadow-lg rounded-lg overflow-hidden border border-neutral-200">
                 <Search placeholder="Search snippets (e.g. 'Postgres Index', 'React Table')..." />
               </div>

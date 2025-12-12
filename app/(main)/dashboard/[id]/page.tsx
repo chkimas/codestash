@@ -1,13 +1,13 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import sql from '@/app/lib/db'
+import sql from '@/db/client'
 import { auth } from '@/auth'
-import { Snippet } from '@/app/lib/definitions'
-import { deleteSnippet } from '@/app/lib/actions'
+import { Snippet } from '@/lib/definitions'
+import { deleteSnippet } from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { CodeViewer } from '@/components/code-viewer'
-import { getLanguageIcon } from '@/app/lib/icons'
+import { CodeViewer } from '@/features/snippets/components/code-viewer'
+import { getLanguageIcon } from '@/components/icons'
 import { Pencil, Trash2, Calendar, Lock, Globe } from 'lucide-react'
 import {
   AlertDialog,

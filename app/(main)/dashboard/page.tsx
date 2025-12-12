@@ -1,11 +1,11 @@
 import { auth } from '@/auth'
-import sql from '@/app/lib/db'
+import sql from '@/db/client'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Plus, Code2, SearchX, Filter } from 'lucide-react'
-import { SnippetCard } from '@/components/snippet-card'
-import Search from '@/components/search'
-import { Snippet } from '@/app/lib/definitions'
+import { SnippetCard } from '@/features/snippets/components/snippet-card'
+import Search from '@/features/snippets/components/search'
+import { Snippet } from '@/lib/definitions'
 
 type Props = {
   searchParams?: Promise<{

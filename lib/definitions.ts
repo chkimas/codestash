@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { LANGUAGE_VALUES } from '@/app/lib/constants'
+import { LANGUAGE_VALUES } from '@/lib/constants'
 
 export interface Snippet {
   id: string

@@ -28,7 +28,7 @@ export async function MainNav() {
     : 'U'
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-neutral-200/60 bg-white/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b border-neutral-200/60 bg-white/80 backdrop-blur-md supports-backdrop-filter:bg-white/60">
       <div className="container flex h-14 items-center justify-between px-6 max-w-[1600px]">
         {/* LEFT: Logo & Breadcrumb Nav */}
         <div className="flex items-center">

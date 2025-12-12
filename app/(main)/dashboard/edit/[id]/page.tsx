@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
-import sql from '@/app/lib/db'
+import sql from '@/db/client'
 import { auth } from '@/auth'
-import { Snippet } from '@/app/lib/definitions'
-import EditSnippetForm from '@/components/edit-form'
+import { Snippet } from '@/lib/definitions'
+import EditSnippetForm from '@/features/snippets/components/edit-form'
 
 type Props = {
   params: Promise<{ id: string }>

@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
 import { Copy, Check, Heart, FileCode2 } from 'lucide-react'
-import { Snippet } from '@/app/lib/definitions'
-import { getLanguageIcon } from '@/app/lib/icons'
-import { toggleFavorite } from '@/app/lib/actions'
+import { Snippet } from '@/lib/definitions'
+import { getLanguageIcon } from '@/components/icons'
+import { toggleFavorite } from '@/features/snippets/actions'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -110,7 +110,7 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
       </CardHeader>
 
       {/* Code Preview */}
-      <CardContent className="px-5 py-0 flex-grow">
+      <CardContent className="px-5 py-0 grow">
         <div className="relative h-32 w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50/50">
           {/* Language Label */}
           <div className="absolute top-0 right-0 z-10">
@@ -135,7 +135,7 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
             </SyntaxHighlighter>
           </div>
 
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/50 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-t from-white via-white/50 to-transparent pointer-events-none" />
         </div>
       </CardContent>
 
