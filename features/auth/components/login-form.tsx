@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import { authenticate } from '@/features/auth/actions'
+import { login } from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,10 +9,13 @@ import { AlertCircle, Code2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function LoginForm() {
-  const [errorMessage, formAction, isPending] = useActionState(authenticate, undefined)
+  // 2. Use the 'login' action
+  // Note: Ensure your login action in actions.ts accepts (prevState, formData)
+  const [state, formAction, isPending] = useActionState(login, undefined)
 
   return (
     <div className="w-full h-screen lg:grid lg:grid-cols-2">
+      {/* ... Left Side Visuals (Unchanged) ... */}
       <div className="hidden lg:flex flex-col justify-between bg-neutral-950 p-10 text-neutral-200 border-r border-neutral-800">
         <div className="flex items-center gap-2 font-medium text-white">
           <div className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900">
@@ -21,7 +24,6 @@ export default function LoginForm() {
           <span className="text-lg tracking-tight font-semibold">CodeStash</span>
         </div>
 
-        {/* Abstract "Code" Visual - CSS only */}
         <div className="space-y-4 opacity-40 select-none pointer-events-none">
           <div className="h-2 w-24 bg-neutral-800 rounded mb-4" />
           <div className="pl-4 space-y-2">
@@ -84,20 +86,20 @@ export default function LoginForm() {
                 className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all font-mono text-sm"
               />
               <Link
-                href="#"
-                className="absolute right-0 text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors"
+                href="/forgot-password"
+                className="absolute right-0 top-0 text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors"
               >
                 Forgot password?
               </Link>
             </div>
 
-            {errorMessage && (
+            {state?.errorMessage && (
               <div
                 className="flex items-center gap-2 rounded-md bg-red-50 border border-red-100 p-3 text-sm text-red-600 animate-in fade-in-0 slide-in-from-top-1"
                 aria-live="polite"
               >
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <p>{errorMessage}</p>
+                <p>{state.errorMessage}</p>
               </div>
             )}
 
@@ -118,12 +120,12 @@ export default function LoginForm() {
 
           <p className="text-center text-sm text-neutral-500">
             Don&apos;t have a stash yet?{' '}
-            <a
+            <Link
               href="/register"
               className="font-medium text-neutral-900 hover:underline underline-offset-4"
             >
               Create an account
-            </a>
+            </Link>
           </p>
         </div>
       </div>

@@ -1,4 +1,5 @@
-import { auth } from '@/auth'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import sql from '@/db/client'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -13,13 +14,19 @@ type Props = {
   }>
 }
 
-export default async function Dashboard(props: Props) {
+export default async function Library(props: Props) {
   const searchParams = await props.searchParams
   const query = searchParams?.query || ''
-  const session = await auth()
-  const userId = session?.user?.id
+  const supabase = await createClient()
+  const {
+    data: { user }
+  } = await supabase.auth.getUser()
 
-  if (!userId) return null
+  if (!user) {
+    redirect('/login') // Safety redirect if no session
+  }
+
+  const userId = user.id
 
   let snippets: Snippet[] = []
 
@@ -44,7 +51,7 @@ export default async function Dashboard(props: Props) {
           )
         AND (
           s.title ILIKE ${searchQuery} OR 
-          s.language ILIKE ${searchQuery} OR
+          s.language ILIKE ${searchQuery} OR 
           s.description ILIKE ${searchQuery}
         )
         ORDER BY s.created_at DESC
@@ -88,7 +95,6 @@ export default async function Dashboard(props: Props) {
         </div>
       </div>
 
-      {/* 2. CONTENT AREA */}
       <section className="container mx-auto px-6 py-8 max-w-[1600px]">
         {!hasSnippets ? (
           <div className="flex flex-col items-center justify-center min-h-[50vh] border-2 border-dashed border-neutral-100 rounded-2xl bg-neutral-50/30">
@@ -110,7 +116,6 @@ export default async function Dashboard(props: Props) {
                 : 'Your personal knowledge base starts here. Save your first reusable component or query.'}
             </p>
 
-            {/* The ONLY CTA on the screen when empty (besides the nav) */}
             {!query && (
               <Button
                 asChild
@@ -118,26 +123,19 @@ export default async function Dashboard(props: Props) {
                 className="bg-neutral-900 text-white hover:bg-neutral-800 shadow-xl shadow-neutral-200/50 transition-all hover:-translate-y-0.5"
               >
                 <Link href="/library/create">
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4" />
                   Create First Snippet
                 </Link>
               </Button>
             )}
 
             {query && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  /* logic to clear search needs client component or just Link */
-                }}
-                asChild
-              >
+              <Button variant="outline" asChild>
                 <Link href="/library">Clear Search</Link>
               </Button>
             )}
           </div>
         ) : (
-          /* GRID STATE */
           <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {snippets.map((snippet) => (
               <SnippetCard key={snippet.id} snippet={snippet} currentUserId={userId} />

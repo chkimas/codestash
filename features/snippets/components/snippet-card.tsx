@@ -29,7 +29,7 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
   const [favCount, setFavCount] = useState(Number(snippet.favorite_count || 0))
 
   const handleCardClick = () => {
-    router.push(`/dashboard/${snippet.id}`)
+    router.push(`/library/${snippet.id}`)
   }
 
   const handleCopy = async (e: React.MouseEvent) => {

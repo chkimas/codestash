@@ -3,7 +3,7 @@ import { Snippet } from '@/lib/definitions'
 import Search from '@/features/snippets/components/search'
 import { SnippetCard } from '@/features/snippets/components/snippet-card'
 import { SearchX, Sparkles } from 'lucide-react'
-import { auth } from '@/auth'
+import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 
 type Props = {
@@ -15,21 +15,26 @@ type Props = {
 export default async function Home(props: Props) {
   const searchParams = await props.searchParams
   const query = searchParams?.query || ''
-  const session = await auth()
-  const userId = session?.user?.id ?? null
+
+  // --- SUPABASE AUTH START ---
+  const supabase = await createClient()
+  const {
+    data: { user }
+  } = await supabase.auth.getUser()
+  const userId = user?.id ?? null
+  // --- SUPABASE AUTH END ---
 
   let snippets: Snippet[] = []
 
   try {
     const searchQuery = query ? `%${query}%` : null
 
-    // Optimized Query Construction
     if (searchQuery) {
       snippets = await sql`
         SELECT 
           s.*, 
           u.name as author_name,
-          NULL as author_image,
+          NULL as author_image, -- Supabase Auth stores avatar in user_metadata if you want it later
           EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
           (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
         FROM snippets s
@@ -109,9 +114,7 @@ export default async function Home(props: Props) {
         </div>
       </section>
 
-      {/* 2. Results Grid - Styled as "Dashboard" */}
       <section className="container mx-auto px-6 py-16 max-w-[1600px]">
-        {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
           <div className="flex items-center gap-3">
             <div className="h-8 w-1 bg-neutral-900 rounded-full" />

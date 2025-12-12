@@ -1,32 +1,43 @@
 'use server'
 
-import { signIn } from '@/auth'
-import { AuthError } from 'next-auth'
+import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import sql from '@/db/client' // Ensure this points to your client
+import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
-import bcrypt from 'bcrypt'
 import { RegisterSchema } from '@/lib/definitions'
 
-export async function authenticate(prevState: string | undefined, formData: FormData) {
-  try {
-    await signIn('credentials', formData)
-  } catch (error) {
-    if (error instanceof AuthError) {
-      switch (error.type) {
-        case 'CredentialsSignin':
-          return 'Invalid credentials. Please check your email and password.'
-        default:
-          return 'Something went wrong. Please try again.'
-      }
+export type AuthState =
+  | {
+      errorMessage?: string
+      message?: string
+      errors?: Record<string, string[]> | null
     }
-    throw error
+  | undefined
+
+export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const supabase = await createClient()
+
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  })
+
+  if (error) {
+    return { errorMessage: error.message }
   }
+
+  revalidatePath('/', 'layout')
+  redirect('/library')
 }
 
 export async function registerUser(formData: z.infer<typeof RegisterSchema>) {
-  const validatedFields = RegisterSchema.safeParse(formData)
+  const supabase = await createClient()
 
+  // Validation
+  const validatedFields = RegisterSchema.safeParse(formData)
   if (!validatedFields.success) {
     return {
       message: 'Validation Error',
@@ -34,21 +45,27 @@ export async function registerUser(formData: z.infer<typeof RegisterSchema>) {
     }
   }
 
-  const { name, email, password } = validatedFields.data
+  const { email, password, name } = validatedFields.data
 
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    await sql`
-      INSERT INTO users (name, email, password)
-      VALUES (${name}, ${email}, ${hashedPassword})
-    `
-  } catch (error) {
-    console.error('Registration Error:', error)
-    return {
-      message: 'Database Error: Failed to Register User.'
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: name
+      }
     }
+  })
+
+  if (error) {
+    return { message: error.message }
   }
 
+  redirect('/login?success=Check your email to verify your account.')
+}
+
+export async function logout() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
   redirect('/login')
 }

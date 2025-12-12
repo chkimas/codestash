@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { CreateSnippetSchema } from '@/lib/definitions'
 import { PROGRAMMING_LANGUAGES } from '@/lib/constants'
-import { updateSnippet } from '@/features/auth/actions'
+import { updateSnippet } from '@/features/snippets/actions'
 import { getLanguageIcon } from '@/components/icons'
 import { Snippet } from '@/lib/definitions'
 import { cn } from '@/lib/utils'
@@ -229,7 +229,7 @@ export default function EditSnippetForm({ snippet }: { snippet: Snippet }) {
 
             <div className="flex justify-end gap-4">
               <Button variant="outline" asChild>
-                <Link href={`/dashboard/${snippet.id}`}>Cancel</Link>
+                <Link href={`/library/${snippet.id}`}>Cancel</Link>
               </Button>
               <Button type="submit" disabled={isPending}>
                 {isPending ? 'Saving...' : 'Save Changes'}

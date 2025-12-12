@@ -3,28 +3,43 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import sql from '@/db/client'
-import { auth } from '@/auth'
+import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { CreateSnippetSchema } from '@/lib/definitions'
 
-// Helper type for inputs
-type SnippetInput = z.infer<typeof CreateSnippetSchema>
+// Centralized error types
+type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; message: string; errors?: Record<string, string[]> }
 
-export async function createSnippet(values: SnippetInput) {
-  const session = await auth()
-  const userId = session?.user?.id
+// Auth helper - avoids repetition
+async function getCurrentUserId() {
+  const supabase = await createClient()
+  const {
+    data: { user }
+  } = await supabase.auth.getUser()
+  return user?.id
+}
 
-  if (!userId) {
-    return { message: 'User not authenticated' }
-  }
+// Generic result helpers
+function success<T>(data: T): ActionResult<T> {
+  return { success: true, data }
+}
+
+function failure(message: string, errors?: Record<string, string[]>): ActionResult {
+  return { success: false, message, errors }
+}
+
+// Snippet operations
+export async function createSnippet(
+  values: z.infer<typeof CreateSnippetSchema>
+): Promise<ActionResult> {
+  const userId = await getCurrentUserId()
+  if (!userId) return failure('User not authenticated')
 
   const validatedFields = CreateSnippetSchema.safeParse(values)
-
   if (!validatedFields.success) {
-    return {
-      message: 'Database Error: Failed to Create Snippet.',
-      errors: validatedFields.error.flatten().fieldErrors
-    }
+    return failure('Validation failed', validatedFields.error.flatten().fieldErrors)
   }
 
   const { title, code, language, description, is_public } = validatedFields.data
@@ -34,82 +49,89 @@ export async function createSnippet(values: SnippetInput) {
       INSERT INTO snippets (user_id, title, code, language, description, is_public)
       VALUES (${userId}, ${title}, ${code}, ${language}, ${description ?? null}, ${is_public})
     `
-  } catch {
-    return {
-      message: 'Database Error: Failed to Create Snippet.'
-    }
+    revalidatePath('/dashboard')
+    redirect('/dashboard')
+    return success(undefined)
+  } catch (error) {
+    console.error('[CREATE_SNIPPET_ERROR]', { userId, title: title.slice(0, 50), error })
+    return failure('Failed to create snippet')
   }
-
-  revalidatePath('/dashboard')
-  redirect('/dashboard')
 }
 
-export async function deleteSnippet(id: string) {
-  const session = await auth()
-  const userId = session?.user?.id
-
-  if (!userId) {
-    return { message: 'Unauthorized' }
-  }
+export async function deleteSnippet(id: string): Promise<ActionResult> {
+  const userId = await getCurrentUserId()
+  if (!userId) return failure('Unauthorized')
 
   try {
-    await sql`
+    const result = await sql`
       DELETE FROM snippets 
       WHERE id = ${id} AND user_id = ${userId}
+      RETURNING id
     `
-  } catch (error) {
-    console.error('Delete Error:', error)
-    return { message: 'Database Error: Failed to Delete Snippet.' }
-  }
 
-  revalidatePath('/dashboard')
-  redirect('/dashboard')
+    if (result.length === 0) {
+      return failure('Snippet not found or unauthorized')
+    }
+
+    revalidatePath('/dashboard')
+    redirect('/dashboard')
+    return success(undefined)
+  } catch (error) {
+    console.error('[DELETE_SNIPPET_ERROR]', { userId, snippetId: id, error })
+    return failure('Failed to delete snippet')
+  }
 }
 
-export async function updateSnippet(id: string, formData: SnippetInput) {
-  const session = await auth()
-  const userId = session?.user?.id
+export async function updateSnippet(
+  id: string,
+  values: z.infer<typeof CreateSnippetSchema>
+): Promise<ActionResult> {
+  const userId = await getCurrentUserId()
+  if (!userId) return failure('Unauthorized')
 
-  if (!userId) {
-    return { message: 'Unauthorized' }
-  }
-
-  const validatedFields = CreateSnippetSchema.safeParse(formData)
-
+  const validatedFields = CreateSnippetSchema.safeParse(values)
   if (!validatedFields.success) {
-    return {
-      message: 'Validation Error',
-      errors: validatedFields.error.flatten().fieldErrors
-    }
+    return failure('Validation failed', validatedFields.error.flatten().fieldErrors)
   }
 
   const { title, code, language, description, is_public } = validatedFields.data
 
   try {
-    await sql`
+    const result = await sql`
       UPDATE snippets
       SET 
         title = ${title},
         code = ${code},
         language = ${language},
         description = ${description ?? null},
-        is_public = ${is_public}
+        is_public = ${is_public},
+        updated_at = NOW()
       WHERE id = ${id} AND user_id = ${userId}
+      RETURNING id
     `
-  } catch (error) {
-    console.error('Update Error:', error)
-    return { message: 'Database Error: Failed to Update Snippet.' }
-  }
 
-  revalidatePath('/dashboard')
-  revalidatePath(`/dashboard/${id}`)
-  redirect(`/dashboard/${id}`)
+    if (result.length === 0) {
+      return failure('Snippet not found or unauthorized')
+    }
+
+    revalidatePath('/dashboard')
+    revalidatePath(`/dashboard/${id}`)
+    redirect(`/dashboard/${id}`)
+    return success(undefined)
+  } catch (error) {
+    console.error('[UPDATE_SNIPPET_ERROR]', {
+      userId,
+      snippetId: id,
+      title: title.slice(0, 50),
+      error
+    })
+    return failure('Failed to update snippet')
+  }
 }
 
-export async function toggleFavorite(snippetId: string) {
-  const session = await auth()
-  const userId = session?.user?.id
-  if (!userId) return { message: 'Unauthorized' }
+export async function toggleFavorite(snippetId: string): Promise<ActionResult> {
+  const userId = await getCurrentUserId()
+  if (!userId) return failure('Unauthorized')
 
   try {
     const existing = await sql`
@@ -124,8 +146,9 @@ export async function toggleFavorite(snippetId: string) {
 
     revalidatePath('/')
     revalidatePath('/dashboard')
+    return success(undefined)
   } catch (error) {
-    console.error('Update Error:', error)
-    return { message: 'Database Error: Failed to Update Snippet.' }
+    console.error('[TOGGLE_FAVORITE_ERROR]', { userId, snippetId, error })
+    return failure('Failed to toggle favorite')
   }
 }

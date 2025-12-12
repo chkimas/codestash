@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { auth, signOut } from '@/auth'
+import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -12,27 +12,30 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Code2, LogOut, Settings, LibraryBig, Plus } from 'lucide-react'
+import { logout } from '@/features/auth/actions'
 
 export async function MainNav() {
-  const session = await auth()
-  const user = session?.user
+  const supabase = await createClient()
+  const {
+    data: { user }
+  } = await supabase.auth.getUser()
+
+  const name = user?.user_metadata?.full_name || user?.email || 'User'
+  const avatarUrl = user?.user_metadata?.avatar_url || ''
 
   // Pre-compute initials
-  const initials = user?.name
-    ? user.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : 'U'
+  const initials = name
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200/60 bg-white/80 backdrop-blur-md supports-backdrop-filter:bg-white/60">
       <div className="container flex h-14 items-center justify-between px-6 max-w-[1600px]">
         {/* LEFT: Logo & Breadcrumb Nav */}
         <div className="flex items-center">
-          {/* Logo Placeholder - Swap Code2 for <Image /> when you have a real logo */}
           <Link
             href="/"
             className="group flex items-center justify-center transition-opacity hover:opacity-80"
@@ -49,7 +52,7 @@ export async function MainNav() {
           <nav className="flex items-center">
             {user ? (
               <Link
-                href="/library"
+                href="/dashboard"
                 className="flex items-center gap-1 text-sm font-medium text-neutral-600 transition-colors px-2 hover:text-neutral-900 py-1 rounded-md"
               >
                 <LibraryBig className="h-4 w-4" />
@@ -77,7 +80,7 @@ export async function MainNav() {
                 variant="ghost"
                 className="hidden sm:flex h-8 gap-1.5 bg-white text-neutral-700 hover:text-neutral-900 hover:bg-transparent font-medium px-3"
               >
-                <Link href="/library/create">
+                <Link href="/dashboard/create">
                   <Plus className="h-3.5 w-3.5" />
                   <span className="text-xs">New Snippet</span>
                 </Link>
@@ -91,7 +94,7 @@ export async function MainNav() {
                     className="relative h-8 w-8 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0 ml-1"
                   >
                     <Avatar className="h-8 w-8 border border-neutral-200 transition-opacity hover:opacity-90">
-                      <AvatarImage src={user.image || ''} alt={user.name || ''} />
+                      <AvatarImage src={avatarUrl} alt={name} />
                       <AvatarFallback className="text-[10px] font-medium bg-neutral-50 text-neutral-600">
                         {initials}
                       </AvatarFallback>
@@ -102,9 +105,7 @@ export async function MainNav() {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none text-neutral-900">
-                        {user.name}
-                      </p>
+                      <p className="text-sm font-medium leading-none text-neutral-900">{name}</p>
                       <p className="text-xs leading-none text-neutral-500 truncate">{user.email}</p>
                     </div>
                   </DropdownMenuLabel>
@@ -117,7 +118,7 @@ export async function MainNav() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard/settings" className="cursor-pointer">
+                      <Link href="/settings" className="cursor-pointer">
                         <Settings className="h-4 w-4 text-neutral-500" />
                         <span>Settings</span>
                       </Link>
@@ -125,13 +126,7 @@ export async function MainNav() {
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="text-neutral-800">
-                    <form
-                      action={async () => {
-                        'use server'
-                        await signOut()
-                      }}
-                      className="w-full"
-                    >
+                    <form action={logout} className="w-full">
                       <button type="submit" className="flex w-full items-center cursor-pointer">
                         <LogOut className="mr-2 h-4 w-4" />
                         Log out
