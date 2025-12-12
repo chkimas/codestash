@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { RegisterSchema } from '@/lib/definitions'
-import { registerUser } from '@/features/auth/actions'
+import { registerUser, type RegisterResult } from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -18,6 +18,7 @@ import {
   FormMessage
 } from '@/components/ui/form'
 import { Loader2, Code2, ArrowRight } from 'lucide-react'
+import { PasswordInput } from '@/components/password-input'
 
 type FormData = z.infer<typeof RegisterSchema>
 
@@ -38,10 +39,13 @@ export default function RegisterPage() {
   const onSubmit = (values: FormData) => {
     setServerError(null)
     startTransition(async () => {
-      const result = await registerUser(values)
-      if (result?.message) {
+      const result: RegisterResult = await registerUser(values)
+
+      if (!result.success) {
         setServerError(result.message)
+        // result.errors is available for per-field display later if you want
       }
+      // On success, the server action redirects to /login
     })
   }
 
@@ -55,7 +59,6 @@ export default function RegisterPage() {
           <span className="text-lg tracking-tight font-semibold">CodeStash</span>
         </div>
 
-        {/* Abstract "Growth/Library" Visual */}
         <div className="space-y-4 opacity-40 select-none pointer-events-none">
           <div className="flex gap-2 mb-4">
             <div className="h-2 w-2 bg-neutral-700 rounded-full" />
@@ -139,12 +142,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel className="text-neutral-700 text-sm font-medium">Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Create a password"
-                        {...field}
-                        className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all placeholder:text-neutral-300 font-mono text-sm"
-                      />
+                      <PasswordInput placeholder="Create a password" {...field} />
                     </FormControl>
                     <FormMessage className="text-xs font-normal" />
                   </FormItem>
@@ -160,12 +158,7 @@ export default function RegisterPage() {
                       Confirm Password
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Confirm your password"
-                        {...field}
-                        className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all placeholder:text-neutral-300 font-mono text-sm"
-                      />
+                      <PasswordInput placeholder="Confirm your password" {...field} />
                     </FormControl>
                     <FormMessage className="text-xs font-normal" />
                   </FormItem>

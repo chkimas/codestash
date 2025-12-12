@@ -6,66 +6,96 @@ import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { RegisterSchema } from '@/lib/definitions'
 
+type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; message: string; errors?: Record<string, string[]> }
+
+export type RegisterResult =
+  | { success: true }
+  | { success: false; message: string; errors?: Record<string, string[]> }
+
 export type AuthState =
-  | {
-      errorMessage?: string
-      message?: string
-      errors?: Record<string, string[]> | null
-    }
+  | { errorMessage?: string; message?: string; errors?: Record<string, string[]> | null }
   | undefined
 
+async function getSupabaseClient() {
+  return await createClient()
+}
+
+function failure(message: string, errors?: Record<string, string[]>): ActionResult {
+  return { success: false, message, errors }
+}
+
 export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
-  const supabase = await createClient()
+  const supabase = await getSupabaseClient()
 
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  })
+  const LoginSchema = z.object({ email: z.string().email(), password: z.string().min(1) })
+  const validated = LoginSchema.safeParse({ email, password })
 
-  if (error) {
-    return { errorMessage: error.message }
+  if (!validated.success) {
+    return {
+      errorMessage: 'Invalid email or password format',
+      errors: validated.error.flatten().fieldErrors
+    }
+  }
+
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (error) {
+      console.error('[LOGIN_ERROR]', error.message)
+      return { errorMessage: error.message }
+    }
+  } catch (error) {
+    console.error('[LOGIN_UNEXPECTED_ERROR]', error)
+    return { errorMessage: 'Login failed. Please try again.' }
   }
 
   revalidatePath('/', 'layout')
   redirect('/library')
 }
 
-export async function registerUser(formData: z.infer<typeof RegisterSchema>) {
-  const supabase = await createClient()
+export async function registerUser(
+  formData: z.infer<typeof RegisterSchema>
+): Promise<ActionResult> {
+  const supabase = await getSupabaseClient()
 
-  // Validation
   const validatedFields = RegisterSchema.safeParse(formData)
   if (!validatedFields.success) {
-    return {
-      message: 'Validation Error',
-      errors: validatedFields.error.flatten().fieldErrors
-    }
+    return failure('Validation failed', validatedFields.error.flatten().fieldErrors)
   }
 
   const { email, password, name } = validatedFields.data
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: name
+  try {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name }
       }
-    }
-  })
+    })
 
-  if (error) {
-    return { message: error.message }
+    if (error) {
+      console.error('[REGISTER_ERROR]', error.message)
+      return failure(error.message)
+    }
+  } catch (error) {
+    console.error('[REGISTER_UNEXPECTED_ERROR]', error)
+    return failure('Registration failed. Please try again.')
   }
 
   redirect('/login?success=Check your email to verify your account.')
 }
 
-export async function logout() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
+export async function logout(): Promise<void> {
+  const supabase = await getSupabaseClient()
+  await supabase.auth.signOut({ scope: 'local' }) // No try/catch needed for simple signOut usually
   redirect('/login')
 }

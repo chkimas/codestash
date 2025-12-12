@@ -57,8 +57,12 @@ export default function CreateSnippetPage() {
     setError(null)
     startTransition(async () => {
       const result = await createSnippet(values)
-      if (result?.message) {
+
+      if (!result) return
+
+      if (!result.success) {
         setError(result.message)
+        return
       }
     })
   }

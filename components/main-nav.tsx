@@ -23,10 +23,9 @@ export async function MainNav() {
   const name = user?.user_metadata?.full_name || user?.email || 'User'
   const avatarUrl = user?.user_metadata?.avatar_url || ''
 
-  // Pre-compute initials
   const initials = name
     .split(' ')
-    .map((n: string) => n[0])
+    .map((part: string) => part[0] ?? '')
     .join('')
     .slice(0, 2)
     .toUpperCase()
@@ -34,7 +33,6 @@ export async function MainNav() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200/60 bg-white/80 backdrop-blur-md supports-backdrop-filter:bg-white/60">
       <div className="container flex h-14 items-center justify-between px-6 max-w-[1600px]">
-        {/* LEFT: Logo & Breadcrumb Nav */}
         <div className="flex items-center">
           <Link
             href="/"
@@ -45,14 +43,12 @@ export async function MainNav() {
             </div>
           </Link>
 
-          {/* Developer Divider */}
           <span className="mx-3 text-neutral-300 font-light select-none">/</span>
 
-          {/* Contextual Nav */}
           <nav className="flex items-center">
             {user ? (
               <Link
-                href="/dashboard"
+                href="/library"
                 className="flex items-center gap-1 text-sm font-medium text-neutral-600 transition-colors px-2 hover:text-neutral-900 py-1 rounded-md"
               >
                 <LibraryBig className="h-4 w-4" />
@@ -69,24 +65,21 @@ export async function MainNav() {
           </nav>
         </div>
 
-        {/* RIGHT: Actions */}
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              {/* Light Action Button */}
               <Button
                 asChild
                 size="sm"
                 variant="ghost"
                 className="hidden sm:flex h-8 gap-1.5 bg-white text-neutral-700 hover:text-neutral-900 hover:bg-transparent font-medium px-3"
               >
-                <Link href="/dashboard/create">
+                <Link href="/library/create">
                   <Plus className="h-3.5 w-3.5" />
                   <span className="text-xs">New Snippet</span>
                 </Link>
               </Button>
 
-              {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -106,13 +99,15 @@ export async function MainNav() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none text-neutral-900">{name}</p>
-                      <p className="text-xs leading-none text-neutral-500 truncate">{user.email}</p>
+                      <p className="text-xs leading-none text-neutral-500 truncate">
+                        {user?.email}
+                      </p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard" className="cursor-pointer">
+                      <Link href="/library" className="cursor-pointer">
                         <LibraryBig className="h-4 w-4 text-neutral-500" />
                         <span>Library</span>
                       </Link>
@@ -137,7 +132,6 @@ export async function MainNav() {
               </DropdownMenu>
             </>
           ) : (
-            /* Public Actions */
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"

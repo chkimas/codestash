@@ -1,7 +1,8 @@
 'use client'
 
 import { useActionState } from 'react'
-import { login } from '@/features/auth/actions'
+import { login, type AuthState } from '@/features/auth/actions'
+import { PasswordInput } from '@/components/password-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,13 +10,10 @@ import { AlertCircle, Code2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function LoginForm() {
-  // 2. Use the 'login' action
-  // Note: Ensure your login action in actions.ts accepts (prevState, formData)
-  const [state, formAction, isPending] = useActionState(login, undefined)
+  const [state, formAction, isPending] = useActionState<AuthState, FormData>(login, undefined)
 
   return (
     <div className="w-full h-screen lg:grid lg:grid-cols-2">
-      {/* ... Left Side Visuals (Unchanged) ... */}
       <div className="hidden lg:flex flex-col justify-between bg-neutral-950 p-10 text-neutral-200 border-r border-neutral-800">
         <div className="flex items-center gap-2 font-medium text-white">
           <div className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900">
@@ -77,14 +75,7 @@ export default function LoginForm() {
                   Password
                 </Label>
               </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                minLength={6}
-                className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all font-mono text-sm"
-              />
+              <PasswordInput id="password" name="password" required minLength={6} />
               <Link
                 href="/forgot-password"
                 className="absolute right-0 top-0 text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors"

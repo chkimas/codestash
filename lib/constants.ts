@@ -42,7 +42,6 @@ export const PROGRAMMING_LANGUAGES = [
   { value: 'nextjs', label: 'Next.js' }
 ] as const
 
-export const LANGUAGE_VALUES = PROGRAMMING_LANGUAGES.map((lang) => lang.value) as [
-  string,
-  ...string[]
-]
+export const LANGUAGE_VALUES = PROGRAMMING_LANGUAGES.map(
+  (lang) => lang.value
+) as (typeof PROGRAMMING_LANGUAGES)[number]['value'][]

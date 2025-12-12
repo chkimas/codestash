@@ -1,12 +1,13 @@
 import { z } from 'zod'
-import { LANGUAGE_VALUES } from '@/lib/constants'
+import { PROGRAMMING_LANGUAGES } from '@/lib/constants'
+export type LanguageValue = (typeof PROGRAMMING_LANGUAGES)[number]['value']
 
 export interface Snippet {
   id: string
   user_id: string
   title: string
   code: string
-  language: (typeof LANGUAGE_VALUES)[number]
+  language: LanguageValue
   description?: string | null
   is_public: boolean
   created_at: string
@@ -26,7 +27,9 @@ export type User = {
 export const CreateSnippetSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100),
   code: z.string().min(1, 'Code is required').max(5000),
-  language: z.enum(LANGUAGE_VALUES),
+  language: z.enum(
+    PROGRAMMING_LANGUAGES.map((l) => l.value) as [LanguageValue, ...LanguageValue[]]
+  ),
   description: z.string().optional(),
   is_public: z.boolean()
 })
