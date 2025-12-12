@@ -3,7 +3,7 @@ import Link from 'next/link'
 import sql from '@/db/client'
 import { auth } from '@/auth'
 import { Snippet } from '@/lib/definitions'
-import { deleteSnippet } from '@/features/auth/actions'
+import { deleteSnippet } from '@/features/snippets/actions'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CodeViewer } from '@/features/snippets/components/code-viewer'
@@ -134,7 +134,7 @@ export default async function SnippetDetailPage(props: Props) {
                 asChild
                 className="h-9 bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200"
               >
-                <Link href={`/dashboard/edit/${snippet.id}`}>
+                <Link href={`/library/edit/${snippet.id}`}>
                   <Pencil className="h-3.5 w-3.5" />
                   Modify
                 </Link>

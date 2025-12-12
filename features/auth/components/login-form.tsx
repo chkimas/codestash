@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, Code2 } from 'lucide-react'
+import Link from 'next/link'
 
 export default function LoginForm() {
   const [errorMessage, formAction, isPending] = useActionState(authenticate, undefined)
@@ -68,17 +69,11 @@ export default function LoginForm() {
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="relative grid gap-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-neutral-700 text-sm font-medium">
                   Password
                 </Label>
-                <a
-                  href="#"
-                  className="text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors"
-                >
-                  Forgot password?
-                </a>
               </div>
               <Input
                 id="password"
@@ -88,6 +83,12 @@ export default function LoginForm() {
                 minLength={6}
                 className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all font-mono text-sm"
               />
+              <Link
+                href="#"
+                className="absolute right-0 text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             {errorMessage && (

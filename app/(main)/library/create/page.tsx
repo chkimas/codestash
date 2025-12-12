@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { CreateSnippetSchema } from '@/lib/definitions'
 import { PROGRAMMING_LANGUAGES } from '@/lib/constants'
-import { createSnippet } from '@/features/auth/actions'
+import { createSnippet } from '@/features/snippets/actions'
 import { getLanguageIcon } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -234,7 +234,7 @@ export default function CreateSnippetPage() {
               {/* BUTTONS */}
               <div className="flex justify-end gap-4">
                 <Button variant="outline" asChild>
-                  <Link href="/dashboard">Cancel</Link>
+                  <Link href="/library">Cancel</Link>
                 </Button>
                 <Button type="submit" disabled={isPending}>
                   {isPending ? 'Saving...' : 'Save Snippet'}

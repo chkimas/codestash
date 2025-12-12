@@ -49,7 +49,7 @@ export async function MainNav() {
           <nav className="flex items-center">
             {user ? (
               <Link
-                href="/dashboard"
+                href="/library"
                 className="flex items-center gap-1 text-sm font-medium text-neutral-600 transition-colors px-2 hover:text-neutral-900 py-1 rounded-md"
               >
                 <LibraryBig className="h-4 w-4" />
@@ -77,7 +77,7 @@ export async function MainNav() {
                 variant="ghost"
                 className="hidden sm:flex h-8 gap-1.5 bg-white text-neutral-700 hover:text-neutral-900 hover:bg-transparent font-medium px-3"
               >
-                <Link href="/dashboard/create">
+                <Link href="/library/create">
                   <Plus className="h-3.5 w-3.5" />
                   <span className="text-xs">New Snippet</span>
                 </Link>

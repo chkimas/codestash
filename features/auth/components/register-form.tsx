@@ -103,7 +103,7 @@ export default function RegisterPage() {
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="e.g. Linus Torvalds"
+                        placeholder="e.g. Code Stash"
                         {...field}
                         className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all placeholder:text-neutral-300"
                       />
@@ -121,7 +121,7 @@ export default function RegisterPage() {
                     <FormLabel className="text-neutral-700 text-sm font-medium">Email</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="name@example.com"
+                        placeholder="code@stash.com"
                         type="email"
                         {...field}
                         className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all placeholder:text-neutral-300 font-mono text-sm"

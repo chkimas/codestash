@@ -117,7 +117,7 @@ export default async function Dashboard(props: Props) {
                 size="lg"
                 className="bg-neutral-900 text-white hover:bg-neutral-800 shadow-xl shadow-neutral-200/50 transition-all hover:-translate-y-0.5"
               >
-                <Link href="/dashboard/create">
+                <Link href="/library/create">
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Snippet
                 </Link>
@@ -132,7 +132,7 @@ export default async function Dashboard(props: Props) {
                 }}
                 asChild
               >
-                <Link href="/dashboard">Clear Search</Link>
+                <Link href="/library">Clear Search</Link>
               </Button>
             )}
           </div>
