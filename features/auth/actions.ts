@@ -42,6 +42,8 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
     }
   }
 
+  let shouldRedirectMFA = false
+
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -52,9 +54,19 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
       console.error('[LOGIN_ERROR]', error.message)
       return { errorMessage: error.message }
     }
+
+    const { data: mfaStatus } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+    if (mfaStatus && mfaStatus.nextLevel === 'aal2' && mfaStatus.currentLevel === 'aal1') {
+      shouldRedirectMFA = true
+    }
   } catch (error) {
     console.error('[LOGIN_UNEXPECTED_ERROR]', error)
     return { errorMessage: 'Login failed. Please try again.' }
+  }
+
+  if (shouldRedirectMFA) {
+    redirect('/verify-mfa')
   }
 
   revalidatePath('/', 'layout')
@@ -96,6 +108,6 @@ export async function registerUser(
 
 export async function logout(): Promise<void> {
   const supabase = await getSupabaseClient()
-  await supabase.auth.signOut({ scope: 'local' }) // No try/catch needed for simple signOut usually
-  redirect('/login')
+  await supabase.auth.signOut({ scope: 'local' })
+  redirect('/')
 }

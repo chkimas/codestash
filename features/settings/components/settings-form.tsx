@@ -68,15 +68,7 @@ export function SettingsForm({
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-12 py-10 px-6">
-      {/* Header */}
-      <header className="space-y-1">
-        <p className="text-lg text-neutral-600">
-          Manage your account profile and security preferences.
-        </p>
-      </header>
-
-      {/* 1. Public Profile */}
+    <div className="mx-auto w-full max-w-4xl space-y-8 px-6">
       <section className="space-y-4">
         <div className="border-b border-neutral-200 pb-4">
           <h2 className="text-base font-semibold text-neutral-900">Public Profile</h2>
@@ -139,7 +131,7 @@ export function SettingsForm({
                 >
                   {isProfilePending ? (
                     <>
-                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      <Loader2 className="h-3 w-3 animate-spin" />
                       Saving
                     </>
                   ) : (

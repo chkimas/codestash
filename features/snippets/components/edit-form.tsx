@@ -6,21 +6,20 @@ import { z } from 'zod'
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { CreateSnippetSchema } from '@/lib/definitions'
+import { CreateSnippetSchema, type Snippet } from '@/lib/definitions'
 import { PROGRAMMING_LANGUAGES } from '@/lib/constants'
 import { updateSnippet } from '@/features/snippets/actions'
 import { getLanguageIcon } from '@/components/icons'
-import { Snippet } from '@/lib/definitions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
-  FormDescription
+  FormMessage
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -49,7 +48,7 @@ export default function EditSnippetForm({ snippet }: { snippet: Snippet }) {
       title: snippet.title,
       code: snippet.code,
       language: snippet.language,
-      description: snippet.description || '',
+      description: snippet.description ?? '',
       is_public: snippet.is_public
     }
   })
@@ -58,7 +57,8 @@ export default function EditSnippetForm({ snippet }: { snippet: Snippet }) {
     setError(null)
     startTransition(async () => {
       const result = await updateSnippet(snippet.id, values)
-      if (result?.message) {
+
+      if (!result.success) {
         setError(result.message)
       }
     })
@@ -105,7 +105,6 @@ export default function EditSnippetForm({ snippet }: { snippet: Snippet }) {
                         >
                           {field.value ? (
                             <div className="flex items-center gap-2">
-                              {/* Selected Icon */}
                               {getLanguageIcon(field.value)}
                               {
                                 PROGRAMMING_LANGUAGES.find(
@@ -139,7 +138,6 @@ export default function EditSnippetForm({ snippet }: { snippet: Snippet }) {
                                 }}
                               >
                                 <div className="flex items-center gap-2">
-                                  {/* List Item Icon */}
                                   {getLanguageIcon(language.value)}
                                   <span>{language.label}</span>
                                 </div>

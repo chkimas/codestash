@@ -38,7 +38,7 @@ export async function MainNav() {
             href="/"
             className="group flex items-center justify-center transition-opacity hover:opacity-80"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 border border-neutral-200 text-neutral-900 group-hover:bg-neutral-50 transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-900 transition-colors">
               <Code2 className="h-4 w-4" />
             </div>
           </Link>

@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import sql from '@/db/client'
-import { auth } from '@/auth'
+import { createClient } from '@/lib/supabase/server'
 import { Snippet } from '@/lib/definitions'
 import EditSnippetForm from '@/features/snippets/components/edit-form'
 
@@ -11,14 +11,19 @@ type Props = {
 export default async function EditSnippetPage(props: Props) {
   const params = await props.params
   const id = params.id
-  const session = await auth()
-  const userId = session?.user?.id
 
-  if (!userId) return null
+  const supabase = await createClient()
+  const {
+    data: { user }
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login')
+  }
 
   const snippets = await sql<Snippet[]>`
     SELECT * FROM snippets 
-    WHERE id = ${id} AND user_id = ${userId}
+    WHERE id = ${id} AND user_id = ${user.id}
   `
   const snippet = snippets[0]
 

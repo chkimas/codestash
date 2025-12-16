@@ -1,14 +1,15 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import sql from '@/db/client'
-import { auth } from '@/auth'
+import { createClient } from '@/lib/supabase/server'
 import { Snippet } from '@/lib/definitions'
 import { deleteSnippet } from '@/features/snippets/actions'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CodeViewer } from '@/features/snippets/components/code-viewer'
 import { getLanguageIcon } from '@/components/icons'
-import { Pencil, Trash2, Calendar, Lock, Globe } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { Pencil, Trash2, Calendar, Lock, Globe, Clock } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,19 +31,24 @@ type Props = {
 export default async function SnippetDetailPage(props: Props) {
   const params = await props.params
   const id = params.id
-  const session = await auth()
-  const userId = session?.user?.id ?? null
+
+  const supabase = await createClient()
+  const {
+    data: { user }
+  } = await supabase.auth.getUser()
+  const userId = user?.id ?? null
 
   const snippets = await sql`
     SELECT 
       s.*, 
       u.name as author_name, 
-      NULL as author_image,
+      u.image as author_image, -- Changed NULL to u.image in case you have avatars
       EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
       (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
     FROM snippets s
     LEFT JOIN users u ON s.user_id = u.id
     WHERE s.id = ${id} 
+    -- Security: Only show if owner OR public
     AND (s.user_id = ${userId} OR s.is_public = true)
     LIMIT 1
   `
@@ -59,8 +65,8 @@ export default async function SnippetDetailPage(props: Props) {
   return (
     <main className="min-h-screen bg-white pb-20">
       {/* Sticky Header / Breadcrumb */}
-      <div className="sticky top-14 z-30 w-full bg-white/80 backdrop-blur-sm">
-        <div className="container mx-auto px-6 h-12 flex items-center">
+      <div className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-sm border-b border-neutral-100">
+        <div className="container mx-auto px-6 h-14 flex items-center">
           <BackButton />
         </div>
       </div>
@@ -76,7 +82,7 @@ export default async function SnippetDetailPage(props: Props) {
               <TooltipProvider>
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
-                    <div className="flex h-8 w-8 items-center justify-center cursor-help">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-100 bg-neutral-50 cursor-help">
                       {getLanguageIcon(snippet.language)}
                     </div>
                   </TooltipTrigger>
@@ -85,10 +91,9 @@ export default async function SnippetDetailPage(props: Props) {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-
               <div className="flex items-center gap-2">
                 <Avatar className="h-5 w-5 border border-neutral-200">
-                  <AvatarImage src={snippet.author_image} />
+                  <AvatarImage src={snippet.author_image || undefined} />
                   <AvatarFallback className="text-[9px] bg-neutral-100 text-neutral-600 font-medium">
                     {authorInitial}
                   </AvatarFallback>
@@ -97,55 +102,63 @@ export default async function SnippetDetailPage(props: Props) {
                   {snippet.author_name || 'Anonymous'}
                 </span>
               </div>
-
               <span className="text-neutral-300">/</span>
-
-              <div
-                className="flex items-center gap-1.5"
-                title={new Date(snippet.created_at).toLocaleString()}
-              >
-                <Calendar className="h-3.5 w-3.5" />
-                <span>
-                  {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(
-                    new Date(snippet.created_at)
-                  )}
-                </span>
-              </div>
-
+              {snippet.updated_at && snippet.updated_at !== snippet.created_at ? (
+                <div
+                  className="flex items-center gap-1.5 text-neutral-600"
+                  title={`Originally created: ${new Date(snippet.created_at).toLocaleString()}`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>
+                    Updated {formatDistanceToNow(new Date(snippet.updated_at), { addSuffix: true })}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-1.5"
+                  title={new Date(snippet.created_at).toLocaleString()}
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>
+                    {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(
+                      new Date(snippet.created_at)
+                    )}
+                  </span>
+                </div>
+              )}
               <span className="text-neutral-300">/</span>
-
               <div className="flex items-center gap-1.5">
                 {snippet.is_public ? (
-                  <Globe className="h-3.5 w-3.5" />
+                  <Globe className="h-3.5 w-3.5 text-blue-500" />
                 ) : (
-                  <Lock className="h-3.5 w-3.5" />
+                  <Lock className="h-3.5 w-3.5 text-amber-500" />
                 )}
                 <span>{snippet.is_public ? 'Public' : 'Private'}</span>
               </div>
             </div>
           </div>
 
-          {/* Action Menu (Desktop: Buttons, Mobile: Dropdown could be added if needed) */}
+          {/* Action Menu */}
           {isOwner && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Button
-                variant="default"
+                variant="outline"
                 size="sm"
                 asChild
-                className="h-9 bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200"
+                className="h-9 gap-2 text-neutral-700 border-neutral-200"
               >
                 <Link href={`/library/edit/${snippet.id}`}>
                   <Pencil className="h-3.5 w-3.5" />
                   Modify
                 </Link>
               </Button>
-              <span className="text-muted-foreground select-none">/</span>
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-neutral-200"
+                    className="h-9 w-9 text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -155,8 +168,10 @@ export default async function SnippetDetailPage(props: Props) {
                     <AlertDialogTitle>Delete Snippet</AlertDialogTitle>
                     <AlertDialogDescription>
                       Are you sure you want to delete{' '}
-                      <span className="font-medium text-neutral-900">{snippet.title}&quot;</span>
-                      &quot; This action cannot be undone.
+                      <span className="font-medium text-neutral-900">
+                        &quot;{snippet.title}&quot;
+                      </span>
+                      ? This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -181,14 +196,14 @@ export default async function SnippetDetailPage(props: Props) {
         {/* DESCRIPTION */}
         {snippet.description && (
           <div className="mb-8 max-w-3xl">
-            <p className="text-lg leading-relaxed text-neutral-600 border-l-2 border-neutral-200 pl-4">
+            <p className="text-lg leading-relaxed text-neutral-600 border-l-2 border-neutral-200 pl-4 py-1">
               {snippet.description}
             </p>
           </div>
         )}
 
         {/* MAIN CODE BLOCK */}
-        <section className="w-full">
+        <section className="w-full rounded-lg border border-neutral-200 overflow-hidden shadow-sm">
           <CodeViewer code={snippet.code} language={snippet.language} className="min-h-[200px]" />
         </section>
       </div>

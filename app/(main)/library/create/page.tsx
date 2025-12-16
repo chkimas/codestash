@@ -40,7 +40,7 @@ type FormData = z.infer<typeof CreateSnippetSchema>
 export default function CreateSnippetPage() {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [open, setOpen] = useState(false) // Controls popover state manually for better UX
+  const [open, setOpen] = useState(false)
 
   const form = useForm<FormData>({
     resolver: zodResolver(CreateSnippetSchema),
