@@ -42,3 +42,13 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Visual Studio
+.vs/
+
+# VS Code (optional – see note below)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
