@@ -65,7 +65,7 @@ export default async function SnippetDetailPage(props: Props) {
   return (
     <main className="min-h-screen bg-white pb-20">
       {/* Sticky Header / Breadcrumb */}
-      <div className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-sm border-b border-neutral-100">
+      <div className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-sm border-neutral-100">
         <div className="container mx-auto px-6 h-14 flex items-center">
           <BackButton />
         </div>
@@ -82,7 +82,7 @@ export default async function SnippetDetailPage(props: Props) {
               <TooltipProvider>
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md border border-neutral-100 bg-neutral-50 cursor-help">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-md cursor-help">
                       {getLanguageIcon(snippet.language)}
                     </div>
                   </TooltipTrigger>
@@ -91,17 +91,20 @@ export default async function SnippetDetailPage(props: Props) {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <div className="flex items-center gap-2">
+              <Link
+                href={`/u/${snippet.user_id}`}
+                className="flex items-center gap-2 group transition-opacity hover:opacity-80"
+              >
                 <Avatar className="h-5 w-5 border border-neutral-200">
                   <AvatarImage src={snippet.author_image || undefined} />
                   <AvatarFallback className="text-[9px] bg-neutral-100 text-neutral-600 font-medium">
                     {authorInitial}
                   </AvatarFallback>
                 </Avatar>
-                <span className="font-medium text-neutral-700">
+                <span className="font-medium text-neutral-700 group-hover:text-blue-600 group-hover:underline decoration-blue-600/30 underline-offset-4 transition-colors">
                   {snippet.author_name || 'Anonymous'}
                 </span>
-              </div>
+              </Link>
               <span className="text-neutral-300">/</span>
               {snippet.updated_at && snippet.updated_at !== snippet.created_at ? (
                 <div

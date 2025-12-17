@@ -38,7 +38,7 @@ export default async function Library(props: Props) {
         SELECT 
           s.*, 
           u.name as author_name,
-          NULL as author_image,
+          u.image as author_image,
           EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
           (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
         FROM snippets s
@@ -61,7 +61,7 @@ export default async function Library(props: Props) {
         SELECT 
           s.*, 
           u.name as author_name,
-          NULL as author_image,
+          u.image as author_image,
           EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
           (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
         FROM snippets s

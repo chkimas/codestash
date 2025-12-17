@@ -8,18 +8,15 @@ import { Snippet } from '@/lib/definitions'
 import { getLanguageIcon } from '@/components/icons'
 import { toggleFavorite } from '@/features/snippets/actions'
 import { cn } from '@/lib/utils'
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import Link from 'next/link'
 
 interface SnippetCardProps {
   snippet: Snippet
   currentUserId?: string | null
-  onDelete?: (id: string) => void
 }
 
 export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
@@ -27,183 +24,172 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
   const [isCopied, setIsCopied] = useState(false)
   const [isFavorited, setIsFavorited] = useState(snippet.is_favorited || false)
   const [favCount, setFavCount] = useState(Number(snippet.favorite_count || 0))
-  const isModified = snippet.updated_at && snippet.updated_at !== snippet.created_at
-  const displayDate = isModified ? snippet.updated_at : snippet.created_at
-  const displayLabel = isModified ? 'Modified' : ''
 
   const isOwner = currentUserId === snippet.user_id
+  const dateStr = snippet.updated_at || snippet.created_at
 
-  const handleCardClick = () => {
-    router.push(`/library/${snippet.id}`)
-  }
+  const handleCardClick = () => router.push(`/library/${snippet.id}`)
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation()
     await navigator.clipboard.writeText(snippet.code)
     setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 1800)
+    setTimeout(() => setIsCopied(false), 1500)
   }
 
   const handleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!currentUserId) {
-      router.push('/login')
-      return
-    }
+    if (!currentUserId) return router.push('/login')
 
     const next = !isFavorited
     setIsFavorited(next)
-    setFavCount((prev) => (next ? prev + 1 : Math.max(prev - 1, 0)))
-
-    await toggleFavorite(snippet.id)
+    setFavCount((n) => (next ? n + 1 : Math.max(n - 1, 0)))
+    void toggleFavorite(snippet.id)
   }
 
-  const normalizeLanguage = (lang: string) => {
-    const lower = lang.toLowerCase()
-    if (lower === 'vuejs' || lower === 'vue') return 'html'
-    if (lower === 'c++') return 'cpp'
-    if (lower === 'c#') return 'csharp'
-    return lower
+  const normalizeLang = (l: string) => {
+    const map: Record<string, string> = {
+      vue: 'html',
+      react: 'tsx',
+      nextjs: 'tsx',
+      'c++': 'cpp',
+      'c#': 'csharp'
+    }
+    return map[l.toLowerCase()] || l.toLowerCase()
   }
 
   return (
-    <Card
+    <div
       onClick={handleCardClick}
-      className="group relative flex cursor-pointer flex-col justify-between overflow-hidden
-               border border-neutral-200 bg-white/90 transition-all duration-200
-               hover:-translate-y-[1px] hover:border-neutral-300 hover:shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
+      className="group relative flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-neutral-300 hover:shadow-lg cursor-pointer"
     >
-      <CardHeader className="px-3 py-2.5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-neutral-100/80 text-neutral-500">
-              {getLanguageIcon(snippet.language) || <FileCode2 className="h-3.5 w-3.5" />}
-            </div>
+      {/* HEADER (Enterprise Compact) */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-neutral-50 bg-neutral-50/40">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-200/50 bg-white text-neutral-600 shadow-sm">
+          {getLanguageIcon(snippet.language) || <FileCode2 className="h-4 w-4" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h3 className="truncate text-sm font-semibold text-neutral-900 group-hover:text-blue-600 transition-colors">
+                  {snippet.title}
+                </h3>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {snippet.title}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        {isOwner && (
+          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-blue-600 border border-blue-100/50">
+            YOU
+          </span>
+        )}
+      </div>
 
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <TooltipProvider>
-                <Tooltip delayDuration={250}>
-                  <TooltipTrigger asChild>
-                    <h3 className="truncate pr-1.5 text-[13px] font-semibold leading-tight tracking-tight text-neutral-950">
-                      {snippet.title}
-                    </h3>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs break-words text-xs">
-                    <p>{snippet.title}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+      {/* CODE WINDOW */}
+      <div className="relative h-[140px] w-full bg-[#fafafa] group-hover:bg-[#f8f9fa] transition-colors">
+        {/* Language Tag */}
+        <div className="absolute right-3 top-3 z-10 rounded-md border border-neutral-200/50 bg-white/90 px-2 py-0.5 text-[10px] font-mono font-medium text-neutral-500 backdrop-blur-sm shadow-sm">
+          {snippet.language}
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white via-white/60 to-transparent z-10" />
+        {/* Syntax Highlighter */}
+        <div className="h-full overflow-hidden text-[11px] opacity-90 mix-blend-multiply">
+          <SyntaxHighlighter
+            language={normalizeLang(snippet.language)}
+            style={oneLight}
+            customStyle={{
+              margin: 0,
+              padding: '1rem',
+              background: 'transparent',
+              fontSize: '11.5px',
+              lineHeight: '1.6'
+            }}
+            wrapLines={false}
+          >
+            {snippet.code}
+          </SyntaxHighlighter>
+        </div>
+      </div>
 
-              <div className="flex items-center gap-1 text-[11px] text-neutral-500">
-                <div className="flex items-center gap-1 min-w-0">
-                  <Avatar className="h-4 w-4 border border-neutral-100">
+      {/* FOOTER */}
+      <div className="flex h-11 shrink-0 items-center justify-between border-t border-neutral-100 bg-white px-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href={`/u/${snippet.user_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-2 group/author"
+                >
+                  <Avatar className="h-5 w-5 border border-neutral-200">
                     <AvatarImage src={snippet.author_image || undefined} />
-                    <AvatarFallback className="bg-neutral-100 text-[8px] font-bold text-neutral-600">
-                      {snippet.author_name?.charAt(0).toUpperCase() || '?'}
+                    <AvatarFallback className="text-[9px] font-bold bg-neutral-100 text-neutral-500">
+                      {snippet.author_name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="truncate font-medium hover:text-neutral-700 transition-colors">
+                  <span className="truncate text-xs font-medium text-neutral-600 group-hover/author:text-blue-600 group-hover/author:underline transition-colors max-w-[100px]">
                     {snippet.author_name || 'Anonymous'}
                   </span>
-                </div>
-                <span className="text-neutral-300">·</span>
-                <span
-                  className="shrink-0 text-neutral-400"
-                  title={new Date(displayDate).toLocaleString()}
-                >
-                  {displayLabel} {formatDistanceToNow(new Date(displayDate), { addSuffix: true })}
-                </span>
-              </div>
-            </div>
-          </div>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">View Profile</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-          {isOwner && (
-            <Badge
-              variant="secondary"
-              className="shrink-0 rounded-md bg-blue-50/60 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-blue-600"
-            >
-              YOU
-            </Badge>
-          )}
+          <span className="text-[10px] text-neutral-300">/</span>
+
+          <span className="text-xs text-neutral-400 tabular-nums">
+            {formatDistanceToNow(new Date(dateStr), { addSuffix: true }).replace('about ', '')}
+          </span>
         </div>
-      </CardHeader>
 
-      <CardContent className="px-3 pb-1.5 pt-0">
-        <div className="relative h-28 w-full overflow-hidden rounded-md border border-neutral-200 bg-neutral-50/70">
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-neutral-50 via-neutral-50/60 to-transparent" />
-
-          <div className="absolute right-0 top-0 z-10 rounded-bl-md border-l border-b border-neutral-200 bg-white/90 px-2 py-[3px] text-[10px] font-mono font-semibold uppercase tracking-[0.14em] text-neutral-400">
-            {snippet.language}
-          </div>
-
-          <div className="h-full overflow-hidden text-[11px] font-mono leading-snug text-neutral-800">
-            <SyntaxHighlighter
-              language={normalizeLanguage(snippet.language)}
-              style={vs}
-              customStyle={{
-                margin: 0,
-                padding: '0.55rem 0.7rem',
-                background: 'transparent',
-                fontSize: '0.7rem',
-                lineHeight: 1.4
-              }}
-              wrapLines
-            >
-              {snippet.code}
-            </SyntaxHighlighter>
-          </div>
-        </div>
-      </CardContent>
-
-      <CardFooter className="flex items-center justify-between border-neutral-100 px-3 py-1.5 text-[11px]">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'h-7 gap-1 px-2 text-neutral-500 transition-all hover:bg-white hover:text-red-600',
-                  'border border-transparent hover:shadow-[0_3px_8px_rgba(15,23,42,0.08)]',
-                  isFavorited &&
-                    'border-neutral-200 bg-white text-red-500 hover:text-red-600 shadow-[0_3px_8px_rgba(15,23,42,0.10)]'
-                )}
-                onClick={handleFavorite}
-              >
-                <Heart
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1">
+          {/* Favorite Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleFavorite}
                   className={cn(
-                    'h-3.5 w-3.5 transition-transform',
-                    isFavorited && 'scale-105 fill-current'
+                    'flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-all',
+                    isFavorited
+                      ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                      : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900'
                   )}
-                />
-                <span className="tabular-nums">{favCount > 0 ? favCount : 'Like'}</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              <p>{isFavorited ? 'Unlike this snippet' : 'Like this snippet'}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+                >
+                  <Heart className={cn('h-3.5 w-3.5', isFavorited && 'fill-current')} />
+                  {favCount > 0 && <span className="tabular-nums">{favCount}</span>}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">{isFavorited ? 'Unlike' : 'Like'}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 px-2 border border-transparent text-neutral-600 transition-all hover:border-neutral-200 hover:bg-white hover:text-neutral-900 hover:shadow-[0_3px_8px_rgba(15,23,42,0.08)]"
-          onClick={handleCopy}
-        >
-          {isCopied ? (
-            <>
-              <Check className="h-3.5 w-3.5 text-emerald-600" />
-              <span className="text-[11px] font-medium text-emerald-600">Copied</span>
-            </>
-          ) : (
-            <>
-              <Copy className="h-3.5 w-3.5" />
-              <span className="text-[11px]">Copy</span>
-            </>
-          )}
-        </Button>
-      </CardFooter>
-    </Card>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleCopy}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-400 transition-all hover:bg-neutral-100 hover:text-neutral-900"
+                >
+                  {isCopied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-xs">Copy</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+    </div>
   )
 }

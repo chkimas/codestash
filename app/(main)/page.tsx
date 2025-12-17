@@ -5,6 +5,8 @@ import { SnippetCard } from '@/features/snippets/components/snippet-card'
 import { SearchX, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
+import Link from 'next/link'
+import { trackSearch, getTrendingSearches } from '@/lib/analytics'
 
 type Props = {
   searchParams?: Promise<{
@@ -16,13 +18,18 @@ export default async function Home(props: Props) {
   const searchParams = await props.searchParams
   const query = searchParams?.query || ''
 
-  // --- SUPABASE AUTH START ---
+  if (query) {
+    void trackSearch(query)
+  }
+
+  const dbTrending = await getTrendingSearches()
+  const trendingTags = dbTrending.length > 0 ? dbTrending : ['typescript', 'nextjs', 'supabase']
+
   const supabase = await createClient()
   const {
     data: { user }
   } = await supabase.auth.getUser()
   const userId = user?.id ?? null
-  // --- SUPABASE AUTH END ---
 
   let snippets: Snippet[] = []
 
@@ -34,7 +41,7 @@ export default async function Home(props: Props) {
         SELECT 
           s.*, 
           u.name as author_name,
-          NULL as author_image, -- Supabase Auth stores avatar in user_metadata if you want it later
+          u.image as author_image,
           EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
           (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
         FROM snippets s
@@ -53,7 +60,7 @@ export default async function Home(props: Props) {
         SELECT 
           s.*, 
           u.name as author_name,
-          NULL as author_image,
+          u.image as author_image,
           EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
           (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
         FROM snippets s
@@ -95,21 +102,38 @@ export default async function Home(props: Props) {
             <div className="relative group">
               <div className="absolute -inset-1 bg-linear-to-r from-neutral-200 to-neutral-100 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
               <div className="relative bg-white shadow-lg rounded-lg overflow-hidden border border-neutral-200">
-                <Search placeholder="Search snippets (e.g. 'Postgres Index', 'React Table')..." />
+                <Search placeholder="That code (you) KNOW `you` saved…" />
               </div>
             </div>
-            <div className="flex items-center justify-center gap-4 mt-3 text-xs text-neutral-400 font-mono">
-              <span>Suggested:</span>
-              <span className="hover:text-neutral-900 cursor-pointer transition-colors">
-                rust-axum
-              </span>
-              <span className="hover:text-neutral-900 cursor-pointer transition-colors">
-                next-auth
-              </span>
-              <span className="hover:text-neutral-900 cursor-pointer transition-colors">
-                shadcn-ui
-              </span>
-            </div>
+
+            {/* DYNAMIC TRENDING SECTION */}
+            {trendingTags.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <span className="mr-1 font-mono text-[10px] uppercase tracking-widest text-neutral-400">
+                  Trending
+                </span>
+
+                {trendingTags.map((term) => (
+                  <Link
+                    key={term}
+                    href={`/?query=${encodeURIComponent(term)}`}
+                    className="
+                      group relative flex items-center rounded-full border border-neutral-200 
+                      bg-white px-3 py-1 text-xs font-medium text-neutral-600 
+                      transition-all duration-200 ease-out
+                      hover:border-neutral-400 hover:text-neutral-900 
+                      active:scale-95
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2
+                    "
+                  >
+                    <span className="mr-0.5 text-neutral-400 transition-colors group-hover:text-neutral-600">
+                      #
+                    </span>
+                    {term}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>

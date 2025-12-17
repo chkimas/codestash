@@ -142,7 +142,11 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel className="text-neutral-700 text-sm font-medium">Password</FormLabel>
                     <FormControl>
-                      <PasswordInput placeholder="Create a password" {...field} />
+                      <PasswordInput
+                        placeholder="Create a password"
+                        {...field}
+                        className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all placeholder:text-neutral-300 font-mono text-sm"
+                      />
                     </FormControl>
                     <FormMessage className="text-xs font-normal" />
                   </FormItem>
@@ -158,7 +162,11 @@ export default function RegisterPage() {
                       Confirm Password
                     </FormLabel>
                     <FormControl>
-                      <PasswordInput placeholder="Confirm your password" {...field} />
+                      <PasswordInput
+                        placeholder="Confirm your password"
+                        {...field}
+                        className="h-10 border-neutral-200 focus-visible:ring-neutral-900 transition-all placeholder:text-neutral-300 font-mono text-sm"
+                      />
                     </FormControl>
                     <FormMessage className="text-xs font-normal" />
                   </FormItem>
