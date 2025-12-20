@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Code2, LogOut, Settings, LibraryBig, Plus } from 'lucide-react'
 import { logout } from '@/features/auth/actions'
+import { ModeToggle } from '@/components/ui/theme-toggle'
 
 export async function MainNav() {
   const supabase = await createClient()
@@ -45,6 +46,7 @@ export async function MainNav() {
 
           <span className="mx-3 text-neutral-300 font-light select-none">/</span>
 
+          <ModeToggle />
           <nav className="flex items-center">
             {user ? (
               <Link
@@ -97,12 +99,14 @@ export async function MainNav() {
 
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none text-neutral-900">{name}</p>
+                    <Link href={`/u/${user.id}`} className="flex flex-col space-y-1 cursor-pointer group">
+                      <p className="text-sm font-medium leading-none text-neutral-900 group-hover:text-gray-400 transition-colors">
+                        {name}
+                      </p>
                       <p className="text-xs leading-none text-neutral-500 truncate">
                         {user?.email}
                       </p>
-                    </div>
+                    </Link>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>

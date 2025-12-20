@@ -111,3 +111,31 @@ export async function logout(): Promise<void> {
   await supabase.auth.signOut({ scope: 'local' })
   redirect('/')
 }
+
+export async function forgotPassword(email: string) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/update-password`,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
+}
+
+export async function updatePassword(password: string) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase.auth.updateUser({
+    password: password
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
+}
