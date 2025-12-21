@@ -112,30 +112,42 @@ export async function logout(): Promise<void> {
   redirect('/')
 }
 
-export async function forgotPassword(email: string) {
+export async function forgotPassword(email: string): Promise<ActionResult> {
   const supabase = await createClient()
-  
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/update-password`,
+    redirectTo: `${appUrl}/auth/callback?next=/update-password`
   })
 
   if (error) {
-    return { error: error.message }
+    return { success: false, message: error.message }
   }
 
-  return { success: true }
+  return { success: true, data: undefined }
 }
 
-export async function updatePassword(password: string) {
+export async function updatePasswordFromRecovery(
+  prevState: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const password = formData.get('password') as string
+
+  if (!password || password.length < 6) {
+    return { errorMessage: 'Password must be at least 6 characters' }
+  }
+
   const supabase = await createClient()
-  
+
   const { error } = await supabase.auth.updateUser({
     password: password
   })
 
   if (error) {
-    return { error: error.message }
+    return { errorMessage: error.message }
   }
 
-  return { success: true }
+  redirect('/')
 }

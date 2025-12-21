@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/server'
 import { CalendarDays, Code2, Layers, Sparkles, Award, Globe, Quote } from 'lucide-react'
 import { differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
+import { Metadata } from 'next'
 
 interface ProfilePageProps {
   params: Promise<{
@@ -26,6 +27,15 @@ function getMemberDuration(date: Date) {
   if (years > 0) return `${years} ${years === 1 ? 'year' : 'years'}`
   if (months > 0) return `${months} ${months === 1 ? 'month' : 'months'}`
   return `${days} ${days === 1 ? 'day' : 'days'}`
+}
+
+export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
+  const { userId } = await params
+  const [user] = await sql`SELECT name FROM users WHERE id = ${userId}`
+
+  return {
+    title: user?.name || 'Profile'
+  }
 }
 
 export default async function ProfilePage(props: ProfilePageProps) {

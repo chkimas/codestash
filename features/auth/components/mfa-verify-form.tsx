@@ -79,7 +79,7 @@ export function MFAVerifyForm() {
           className={cn(
             'text-center text-lg tracking-[0.5em] font-mono h-12 transition-all',
             error &&
-              'border-red-500 ring-red-500 focus-visible:ring-red-500 bg-red-50 text-red-900 placeholder:text-red-300'
+              'border-destructive ring-destructive focus-visible:ring-destructive text-destructive placeholder:text-destructive/50'
           )}
           maxLength={6}
           value={code}
@@ -90,7 +90,7 @@ export function MFAVerifyForm() {
         />
 
         {error && (
-          <p className="text-sm text-red-500 font-medium text-center animate-in fade-in slide-in-from-top-1">
+          <p className="text-sm text-destructive font-medium text-center animate-in fade-in slide-in-from-top-1">
             {error}
           </p>
         )}
@@ -107,7 +107,7 @@ export function MFAVerifyForm() {
             await supabase.auth.signOut()
             router.push('/login')
           }}
-          className="text-xs text-neutral-400 hover:text-neutral-900 underline"
+          className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
         >
           Back to Login
         </button>

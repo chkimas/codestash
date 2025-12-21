@@ -7,11 +7,16 @@ import { Plus, Code2, SearchX, Filter } from 'lucide-react'
 import { SnippetCard } from '@/features/snippets/components/snippet-card'
 import Search from '@/features/snippets/components/search'
 import { Snippet } from '@/lib/definitions'
+import { Metadata } from 'next'
 
 type Props = {
   searchParams?: Promise<{
     query?: string
   }>
+}
+
+export const metadata: Metadata = {
+  title: 'Library'
 }
 
 export default async function Library(props: Props) {

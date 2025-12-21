@@ -10,8 +10,8 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 export const metadata: Metadata = {
   metadataBase: new URL('https://codestash-three.vercel.app/'),
   title: {
-    default: 'CodeStash | The Open Code Registry',
-    template: '%s | CodeStash'
+    default: 'CodeStash',
+    template: 'CodeStash | %s'
   },
   description:
     'Save, organize, and share your code snippets. A free, open-source knowledge base for developers.',

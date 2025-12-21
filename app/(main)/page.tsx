@@ -6,12 +6,19 @@ import { SearchX, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { Metadata } from 'next'
 import { trackSearch, getTrendingSearches } from '@/lib/analytics'
 
 type Props = {
   searchParams?: Promise<{
     query?: string
   }>
+}
+
+export const metadata: Metadata = {
+  title: {
+    absolute: 'CodeStash | The Open Registry'
+  }
 }
 
 export default async function Home(props: Props) {
@@ -90,7 +97,7 @@ export default async function Home(props: Props) {
 
           <h1 className="text-4xl md:text-6xl font-semibold tracking-tighter text-foreground mb-6">
             Build faster with{' '}
-            <span className="relative font-bold inline-flex">
+            <span className="relative font-bold inline-flex text-4xl md:text-7xl">
               {['C', 'o', 'd', 'e', 'S', 't', 'a', 's', 'h', '.'].map((letter, i) => (
                 <span
                   key={i}
@@ -102,7 +109,7 @@ export default async function Home(props: Props) {
                     animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                 >
-                  <span className="bg-gradient-to-b from-red-400 via-violet-400 to-purple-400 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-b from-white via-gray-400 to-black bg-clip-text text-transparent">
                     {letter}
                   </span>
                 </span>
@@ -113,7 +120,7 @@ export default async function Home(props: Props) {
                 {[...Array(3)].map((_, i) => (
                   <span
                     key={i}
-                    className="absolute top-0 h-full w-0.5 bg-gradient-to-b from-transparent via-purple-400/30 to-transparent animate-scanline"
+                    className="absolute top-0 h-full w-0.5 bg-gradient-to-b from-transparent via-white-400/30 to-transparent animate-scanline"
                     style={{
                       left: `${30 + i * 20}%`,
                       animationDelay: `${i * 0.2}s`

@@ -3,6 +3,11 @@ import { redirect } from 'next/navigation'
 import sql from '@/db/client'
 import { SettingsForm } from '@/features/settings/components/settings-form'
 import { MFAForm } from '@/features/settings/components/mfa-form'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Settings'
+}
 
 export default async function SettingsPage() {
   const supabase = await createClient()
