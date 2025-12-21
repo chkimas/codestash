@@ -23,7 +23,7 @@ export default async function Library(props: Props) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login') // Safety redirect if no session
+    redirect('/login')
   }
 
   const userId = user.id
@@ -37,7 +37,7 @@ export default async function Library(props: Props) {
       snippets = await sql`
         SELECT 
           s.*, 
-          u.name as author_name,
+          u.name as author_name, 
           u.image as author_image,
           EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
           (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
@@ -60,7 +60,7 @@ export default async function Library(props: Props) {
       snippets = await sql`
         SELECT 
           s.*, 
-          u.name as author_name,
+          u.name as author_name, 
           u.image as author_image,
           EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
           (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
@@ -81,11 +81,11 @@ export default async function Library(props: Props) {
 
   return (
     <main className="min-h-screen bg-background pb-20">
-      <div className="bg-white sticky top-14 z-20">
+      <div className="sticky top-14 z-20 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-6 max-w-[1600px] h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-neutral-500">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Filter className="h-3.5 w-3.5" />
-            <span className="font-medium text-neutral-900">{snippets.length}</span>
+            <span className="font-medium text-foreground">{snippets.length}</span>
             <span>items</span>
           </div>
 
@@ -97,20 +97,20 @@ export default async function Library(props: Props) {
 
       <section className="container mx-auto px-6 py-8 max-w-[1600px]">
         {!hasSnippets ? (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] border-2 border-dashed border-neutral-100 rounded-2xl bg-neutral-50/30">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm border border-neutral-100 mb-6">
+          <div className="flex flex-col items-center justify-center min-h-[50vh] border-2 border-dashed border-border rounded-2xl bg-muted/20">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-card shadow-sm border border-border mb-6">
               {query ? (
-                <SearchX className="h-7 w-7 text-neutral-400" />
+                <SearchX className="h-7 w-7 text-muted-foreground" />
               ) : (
-                <Code2 className="h-7 w-7 text-neutral-400" />
+                <Code2 className="h-7 w-7 text-muted-foreground" />
               )}
             </div>
 
-            <h2 className="text-xl font-semibold text-neutral-900 tracking-tight">
+            <h2 className="text-xl font-semibold text-foreground tracking-tight">
               {query ? 'No matching snippets' : 'Library is empty'}
             </h2>
 
-            <p className="text-neutral-500 max-w-md text-center mt-2 mb-8 leading-relaxed">
+            <p className="text-muted-foreground max-w-md text-center mt-2 mb-8 leading-relaxed">
               {query
                 ? `We couldn't find any snippets matching "${query}". Try different keywords.`
                 : 'Your personal knowledge base starts here. Save your first reusable component or query.'}
@@ -120,7 +120,7 @@ export default async function Library(props: Props) {
               <Button
                 asChild
                 size="lg"
-                className="bg-neutral-900 text-white hover:bg-neutral-800 shadow-xl shadow-neutral-200/50 transition-all hover:-translate-y-0.5"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
               >
                 <Link href="/library/create">
                   <Plus className="h-4 w-4" />

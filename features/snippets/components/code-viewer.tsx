@@ -1,11 +1,12 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import SyntaxHighlighter from 'react-syntax-highlighter/dist/esm/prism'
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { oneLight, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Copy, Check } from 'lucide-react'
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTheme } from 'next-themes'
 
 interface CodeViewerProps {
   code: string
@@ -15,6 +16,13 @@ interface CodeViewerProps {
 
 export function CodeViewer({ code, language, className }: CodeViewerProps) {
   const [isCopied, setIsCopied] = useState(false)
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true)
+  }, [])
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code)
@@ -38,15 +46,16 @@ export function CodeViewer({ code, language, className }: CodeViewerProps) {
   }
 
   const safeLanguage = normalizeLanguage(language)
+  const syntaxTheme = mounted && resolvedTheme === 'dark' ? oneDark : oneLight
 
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm',
+        'relative overflow-hidden rounded-xl border border-border bg-card shadow-sm',
         className
       )}
     >
-      <div className="flex items-center justify-between border-b border-neutral-100 bg-neutral-50/60 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border/50 bg-muted/40 px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex gap-1.5">
             <div className="h-3 w-3 rounded-full bg-[#FF5F57] shadow-inner" />
@@ -54,7 +63,7 @@ export function CodeViewer({ code, language, className }: CodeViewerProps) {
             <div className="h-3 w-3 rounded-full bg-[#28C840] shadow-inner" />
           </div>
 
-          <span className="ml-2 font-mono text-xs font-medium text-neutral-400">
+          <span className="ml-2 font-mono text-xs font-medium text-muted-foreground">
             snippet.{safeLanguage === 'c++' ? 'cpp' : safeLanguage}
           </span>
         </div>
@@ -65,8 +74,8 @@ export function CodeViewer({ code, language, className }: CodeViewerProps) {
           onClick={handleCopy}
           className={cn(
             'h-7 gap-1.5 rounded-md px-2.5 text-xs font-medium transition-all',
-            'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900',
-            isCopied && 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+            'text-muted-foreground hover:bg-muted hover:text-foreground',
+            isCopied && 'text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
           )}
         >
           {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -74,10 +83,10 @@ export function CodeViewer({ code, language, className }: CodeViewerProps) {
         </Button>
       </div>
 
-      <div className="relative bg-white text-sm">
+      <div className="relative bg-background/50 text-sm">
         <SyntaxHighlighter
           language={safeLanguage}
-          style={oneLight}
+          style={syntaxTheme}
           showLineNumbers={true}
           customStyle={{
             margin: 0,
@@ -93,7 +102,7 @@ export function CodeViewer({ code, language, className }: CodeViewerProps) {
           lineNumberStyle={{
             minWidth: '2.5em',
             paddingRight: '1.5em',
-            color: '#d4d4d4',
+            color: mounted && resolvedTheme === 'dark' ? '#6e7681' : '#d4d4d4',
             textAlign: 'right',
             userSelect: 'none'
           }}

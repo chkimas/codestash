@@ -6,7 +6,7 @@ import { AlertTriangle } from 'lucide-react'
 
 export default function Error({
   error,
-  reset,
+  reset
 }: {
   error: Error & { digest?: string }
   reset: () => void
@@ -16,12 +16,12 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white text-center px-6">
-      <div className="rounded-full bg-red-50 p-4 mb-4">
-        <AlertTriangle className="h-10 w-10 text-red-500" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background text-center px-6">
+      <div className="rounded-full bg-destructive/10 p-4 mb-4">
+        <AlertTriangle className="h-10 w-10 text-destructive" />
       </div>
-      <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Something went wrong!</h2>
-      <p className="mt-2 text-neutral-500 max-w-sm">
+      <h2 className="text-2xl font-bold tracking-tight text-foreground">Something went wrong!</h2>
+      <p className="mt-2 text-muted-foreground max-w-sm">
         An unexpected error occurred. Our team has been notified.
       </p>
       <div className="mt-8">

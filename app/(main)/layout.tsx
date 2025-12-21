@@ -1,24 +1,10 @@
-import { Geist, Geist_Mono } from 'next/font/google'
 import { MainNav } from '@/components/main-nav'
-import { ThemeProvider } from '@/components/theme-provider'
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <MainNav />
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
+    <div className="flex min-h-screen flex-col">
+      <MainNav />
+      <main className="flex-1">{children}</main>
+    </div>
   )
 }

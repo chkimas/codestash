@@ -68,186 +68,192 @@ export default function CreateSnippetPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-2xl py-10">
-      <Card>
-        <CardHeader>
-          <CardTitle>Create New Snippet</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* TITLE Field */}
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Center a div with CSS Flexbox" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div className="min-h-screen bg-background py-10 px-4 md:px-6">
+      <div className="mx-auto max-w-2xl">
+        <Card className="border-border/50 shadow-sm bg-card">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-foreground">Create New Snippet</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* TITLE Field */}
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-foreground">Title</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. Center a div with CSS Flexbox"
+                          {...field}
+                          className="bg-background"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              {/* LANGUAGE Field */}
-              <FormField
-                control={form.control}
-                name="language"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Language</FormLabel>
-                    <Popover open={open} onOpenChange={setOpen}>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={open}
-                            className={cn(
-                              'w-full justify-between',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              <div className="flex items-center gap-2">
-                                {/* Selected Icon */}
-                                {getLanguageIcon(field.value)}
-                                {
-                                  PROGRAMMING_LANGUAGES.find(
-                                    (language) => language.value === field.value
-                                  )?.label
-                                }
-                              </div>
-                            ) : (
-                              'Select language'
-                            )}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="p-0"
-                        style={{ width: 'var(--radix-popover-trigger-width)' }}
-                      >
-                        <Command>
-                          <CommandInput placeholder="Search language..." />
-                          <CommandList>
-                            <CommandEmpty>No language found.</CommandEmpty>
-                            <CommandGroup>
-                              {PROGRAMMING_LANGUAGES.map((language) => (
-                                <CommandItem
-                                  value={language.label}
-                                  key={language.value}
-                                  onSelect={() => {
-                                    form.setValue('language', language.value)
-                                    setOpen(false)
-                                  }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {/* List Item Icon */}
-                                    {getLanguageIcon(language.value)}
-                                    <span>{language.label}</span>
-                                  </div>
-                                  <Check
-                                    className={cn(
-                                      'ml-auto h-4 w-4',
-                                      language.value === field.value ? 'opacity-100' : 'opacity-0'
-                                    )}
-                                  />
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                {/* LANGUAGE Field */}
+                <FormField
+                  control={form.control}
+                  name="language"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="text-foreground">Language</FormLabel>
+                      <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={open}
+                              className={cn(
+                                'w-full justify-between bg-background',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                <div className="flex items-center gap-2 text-foreground">
+                                  {/* Selected Icon */}
+                                  {getLanguageIcon(field.value)}
+                                  {
+                                    PROGRAMMING_LANGUAGES.find(
+                                      (language) => language.value === field.value
+                                    )?.label
+                                  }
+                                </div>
+                              ) : (
+                                'Select language'
+                              )}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="p-0 bg-popover"
+                          style={{ width: 'var(--radix-popover-trigger-width)' }}
+                        >
+                          <Command>
+                            <CommandInput placeholder="Search language..." />
+                            <CommandList>
+                              <CommandEmpty>No language found.</CommandEmpty>
+                              <CommandGroup>
+                                {PROGRAMMING_LANGUAGES.map((language) => (
+                                  <CommandItem
+                                    value={language.label}
+                                    key={language.value}
+                                    onSelect={() => {
+                                      form.setValue('language', language.value)
+                                      setOpen(false)
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      {/* List Item Icon */}
+                                      {getLanguageIcon(language.value)}
+                                      <span>{language.label}</span>
+                                    </div>
+                                    <Check
+                                      className={cn(
+                                        'ml-auto h-4 w-4',
+                                        language.value === field.value ? 'opacity-100' : 'opacity-0'
+                                      )}
+                                    />
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              {/* CODE Field */}
-              <FormField
-                control={form.control}
-                name="code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Code</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Paste your code here..."
-                        className="font-mono min-h-[200px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      <i>Monospaced font for better readability.</i>
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* DESCRIPTION Field */}
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe the purpose of your code snippet..."
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* IS PUBLIC Checkbox */}
-              <FormField
-                control={form.control}
-                name="is_public"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Make this snippet public</FormLabel>
-                      <FormDescription>
-                        Anyone on the internet can view and copy public snippets.
+                {/* CODE Field */}
+                <FormField
+                  control={form.control}
+                  name="code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-foreground">Code</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Paste your code here..."
+                          className="font-mono min-h-[200px] bg-background"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-muted-foreground">
+                        <i>Monospaced font for better readability.</i>
                       </FormDescription>
-                    </div>
-                  </FormItem>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* DESCRIPTION Field */}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-foreground">Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe the purpose of your code snippet..."
+                          className="resize-none bg-background"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* IS PUBLIC Checkbox */}
+                <FormField
+                  control={form.control}
+                  name="is_public"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border border-border p-4 bg-background/50">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="text-foreground">Make this snippet public</FormLabel>
+                        <FormDescription className="text-muted-foreground">
+                          Anyone on the internet can view and copy public snippets.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                {/* ERROR ALERT */}
+                {error && (
+                  <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
+                    {error}
+                  </div>
                 )}
-              />
 
-              {/* ERROR ALERT */}
-              {error && (
-                <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
-                  {error}
+                {/* BUTTONS */}
+                <div className="flex justify-end gap-4">
+                  <Button variant="outline" asChild className="border-border">
+                    <Link href="/library">Cancel</Link>
+                  </Button>
+                  <Button type="submit" disabled={isPending}>
+                    {isPending ? 'Saving...' : 'Save Snippet'}
+                  </Button>
                 </div>
-              )}
-
-              {/* BUTTONS */}
-              <div className="flex justify-end gap-4">
-                <Button variant="outline" asChild>
-                  <Link href="/library">Cancel</Link>
-                </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? 'Saving...' : 'Save Snippet'}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

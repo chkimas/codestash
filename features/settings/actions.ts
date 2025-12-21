@@ -35,6 +35,8 @@ export async function updateProfile(
     avatar: (formData.get('avatar') as File | null) || undefined
   })
 
+  const bio = formData.get('bio') as string | null
+
   if (!parsed.success) {
     return { error: 'Invalid input format.' }
   }
@@ -45,6 +47,7 @@ export async function updateProfile(
 
   let newAvatarUrl: string | undefined
   let nameUpdated = false
+  let bioUpdated = false
 
   if (avatar && avatar.size > 0) {
     if (avatar.size > 2 * 1024 * 1024) {
@@ -80,6 +83,17 @@ export async function updateProfile(
     }
   }
 
+  if (bio !== null) {
+    try {
+      const truncatedBio = bio.slice(0, 160) // Enforce limit server-side
+      await sql`UPDATE users SET bio = ${truncatedBio} WHERE id = ${user.id}`
+      bioUpdated = true
+    } catch (e) {
+      console.error('Bio Update Error:', e)
+      errors.push('Bio update failed')
+    }
+  }
+
   if (name) {
     try {
       const dbUser = await sql`SELECT last_name_change FROM users WHERE id = ${user.id}`
@@ -109,7 +123,9 @@ export async function updateProfile(
     if (newAvatarUrl) updateData.avatar_url = newAvatarUrl
 
     await supabase.auth.updateUser({ data: updateData })
+  }
 
+  if (nameUpdated || newAvatarUrl || bioUpdated) {
     revalidatePath('/', 'layout')
   }
 
@@ -120,7 +136,7 @@ export async function updateProfile(
     }
   } else if (errors.length > 0) {
     return { error: errors.join('. ') }
-  } else if (successes.length > 0) {
+  } else if (successes.length > 0 || bioUpdated) {
     return { success: true, message: 'Profile updated successfully.' }
   }
 

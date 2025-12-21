@@ -4,7 +4,8 @@ import { Snippet } from '@/lib/definitions'
 import { SnippetCard } from '@/features/snippets/components/snippet-card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/server'
-import { CalendarDays, Code2, Layers } from 'lucide-react'
+import { CalendarDays, Code2, Layers, Sparkles, Award, Globe, Quote } from 'lucide-react'
+import { differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
 
 interface ProfilePageProps {
   params: Promise<{
@@ -12,30 +13,46 @@ interface ProfilePageProps {
   }>
 }
 
+function isValidUUID(uuid: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)
+}
+
+function getMemberDuration(date: Date) {
+  const now = new Date()
+  const years = differenceInYears(now, date)
+  const months = differenceInMonths(now, date)
+  const days = differenceInDays(now, date)
+
+  if (years > 0) return `${years} ${years === 1 ? 'year' : 'years'}`
+  if (months > 0) return `${months} ${months === 1 ? 'month' : 'months'}`
+  return `${days} ${days === 1 ? 'day' : 'days'}`
+}
+
 export default async function ProfilePage(props: ProfilePageProps) {
   const params = await props.params
   const userId = params.userId
 
-  // 1. Fetch Current Viewer (to check if they favorited things)
+  if (!isValidUUID(userId)) {
+    notFound()
+  }
+
   const supabase = await createClient()
   const {
     data: { user: currentUser }
   } = await supabase.auth.getUser()
   const currentUserId = currentUser?.id ?? null
 
-  // 2. Fetch Target User Profile
-  // We use "limit 1" because ID is unique
+  // Fetch Profile with BIO
   const [profile] = await sql`
-    SELECT id, name, image, created_at 
+    SELECT id, name, image, bio, created_at 
     FROM users 
     WHERE id = ${userId}
   `
 
   if (!profile) {
-    notFound() // This triggers the 404 page (which we will build next)
+    notFound()
   }
 
-  // 3. Fetch Their Public Snippets
   const snippets: Snippet[] = await sql`
     SELECT 
       s.*, 
@@ -50,71 +67,190 @@ export default async function ProfilePage(props: ProfilePageProps) {
     ORDER BY s.created_at DESC
   `
 
+  const totalFavorites = snippets.reduce((acc, snippet) => acc + (snippet.favorite_count || 0), 0)
+  const memberSince = new Date(profile.created_at)
+
+  // FIX: Removing comma from year (use String instead of toLocaleString for year)
+  const joinYear = memberSince.getFullYear().toString()
+
   const stats = [
-    { label: 'Snippets', value: snippets.length, icon: Code2 },
-    // You could add 'Total Favorites' here if you wrote a complex query for it
-    { label: 'Member Since', value: new Date(profile.created_at).getFullYear(), icon: CalendarDays }
+    {
+      label: 'Snippets',
+      value: snippets.length,
+      icon: Code2,
+      description: 'Public contributions',
+      accent: 'text-foreground'
+    },
+    {
+      label: 'Total Favorites',
+      value: totalFavorites,
+      icon: Sparkles,
+      description: 'Community appreciation',
+      accent: 'text-muted-foreground'
+    },
+    {
+      label: 'Member Since',
+      value: joinYear, // Fixed: No comma (e.g. "2025")
+      icon: CalendarDays,
+      description: `${getMemberDuration(memberSince)} with us`, // Smart duration
+      accent: 'text-foreground'
+    }
   ]
 
   return (
     <div className="min-h-screen bg-background">
-      {/* --- Header Section --- */}
-      <div className="border-b border-neutral-200 bg-neutral-50/40">
-        <div className="container max-w-5xl mx-auto px-6 py-12 md:py-16">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8">
-            {/* Large Avatar */}
-            <Avatar className="h-24 w-24 md:h-32 md:w-32 border-4 border-white shadow-sm">
-              <AvatarImage src={profile.image || undefined} />
-              <AvatarFallback className="text-4xl bg-neutral-200 text-neutral-500">
-                {profile.name?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+      {/* Header with Background Pattern */}
+      <div className="relative border-b border-border/40 bg-muted/10 dark:bg-background overflow-hidden">
+        {/* Subtle Grid/Dot Pattern Background */}
+        <div
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
+          style={{
+            backgroundImage: 'radial-gradient(#888 1px, transparent 1px)',
+            backgroundSize: '24px 24px'
+          }}
+        ></div>
 
-            {/* User Info */}
-            <div className="flex-1 text-center md:text-left space-y-4">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
-                  {profile.name}
-                </h1>
-                <p className="text-neutral-500 text-sm mt-1 font-mono">
-                  User ID: <span className="text-neutral-400">{profile.id.slice(0, 8)}...</span>
-                </p>
+        <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-transparent to-background pointer-events-none" />
+
+        <div className="container max-w-6xl mx-auto px-6 relative">
+          <div className="pt-28 pb-20">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
+              <div className="relative group">
+                {/* Avatar Glow */}
+                <div className="absolute -inset-0.5 bg-gradient-to-br from-foreground/10 via-transparent to-foreground/10 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+
+                <Avatar className="relative h-32 w-32 md:h-40 md:w-40 border-[4px] border-background shadow-xl">
+                  <AvatarImage src={profile.image || undefined} className="object-cover" />
+                  <AvatarFallback className="text-4xl font-light bg-muted text-foreground">
+                    {profile.name?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+
+                {totalFavorites > 10 && (
+                  <div className="absolute -bottom-2 -right-2 bg-foreground text-background rounded-full p-2 border-4 border-background shadow-sm">
+                    <Award className="h-5 w-5" />
+                  </div>
+                )}
               </div>
 
-              {/* Stats Row */}
-              <div className="flex items-center justify-center md:justify-start gap-6">
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex items-center gap-2 text-sm text-neutral-600"
-                  >
-                    <stat.icon className="h-4 w-4 text-neutral-400" />
-                    <span className="font-medium text-neutral-900">{stat.value}</span>
-                    <span className="text-neutral-500">{stat.label}</span>
+              <div className="flex-1 text-center md:text-left space-y-8">
+                <div className="space-y-4">
+                  <div>
+                    <h1 className="text-4xl md:text-5xl font-light tracking-tight text-foreground leading-tight">
+                      {profile.name}
+                    </h1>
+                    <div className="flex items-center justify-center md:justify-start gap-3 mt-3">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/50">
+                        <Globe className="h-3 w-3" />
+                        <code className="font-mono tracking-wider">
+                          {profile.id.slice(0, 12)}...
+                        </code>
+                      </div>
+                      <span className="text-sm text-muted-foreground/80">
+                        {snippets.length === 0 ? 'New Member' : 'Active Contributor'}
+                      </span>
+                    </div>
                   </div>
-                ))}
+
+                  {/* CUSTOM BIO SECTION */}
+                  <div className="relative max-w-2xl mx-auto md:mx-0">
+                    {profile.bio ? (
+                      <p className="text-lg text-foreground/80 leading-relaxed font-light">
+                        {profile.bio}
+                      </p>
+                    ) : (
+                      <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground/60 italic">
+                        <Quote className="h-4 w-4 rotate-180" />
+                        <span>Sharing knowledge through elegant code solutions</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-2xl">
+                  {stats.map((stat) => (
+                    <div key={stat.label} className="group relative">
+                      <div className="relative bg-card/50 dark:bg-card/20 backdrop-blur-sm border border-border/50 rounded-2xl p-5 transition-all duration-300 hover:border-border hover:shadow-sm hover:-translate-y-0.5">
+                        <div className="flex items-center justify-between mb-3">
+                          <stat.icon
+                            className={`h-5 w-5 ${stat.accent} opacity-70 group-hover:opacity-100 transition-opacity`}
+                          />
+                          <span className="text-xs font-medium text-muted-foreground/70 bg-muted/40 px-2.5 py-1 rounded-full">
+                            {stat.label}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-3xl font-light text-foreground">{stat.value}</p>
+                          <p className="text-xs text-muted-foreground/70">{stat.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* --- Content Grid --- */}
-      <div className="container max-w-5xl mx-auto px-6 py-12">
-        <div className="flex items-center gap-2 mb-8">
-          <Layers className="h-5 w-5 text-neutral-400" />
-          <h2 className="text-lg font-semibold text-neutral-900">Public Contributions</h2>
+      <div className="container max-w-6xl mx-auto px-6 py-16">
+        <div className="mb-14">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-foreground/5 to-transparent rounded-full blur" />
+                <div className="relative bg-card border border-border rounded-xl p-2.5 shadow-sm">
+                  <Layers className="h-5 w-5 text-foreground/80" />
+                </div>
+              </div>
+              <div>
+                <h2 className="text-2xl font-light tracking-tight text-foreground">
+                  Public Contributions
+                </h2>
+                <p className="text-muted-foreground/70 mt-1 text-sm">
+                  Code snippets shared with the community
+                </p>
+              </div>
+            </div>
+
+            <div className="text-sm text-muted-foreground hidden sm:block">
+              <span className="text-foreground font-medium">Latest</span> • {snippets.length} items
+            </div>
+          </div>
+
+          <div className="h-px bg-gradient-to-r from-border/5 via-border/40 to-border/5" />
         </div>
 
         {snippets.length > 0 ? (
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {snippets.map((snippet) => (
-              <SnippetCard key={snippet.id} snippet={snippet} currentUserId={currentUserId} />
+          <div className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {snippets.map((snippet, index) => (
+              <div
+                key={snippet.id}
+                className="group relative"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="absolute -inset-px bg-gradient-to-br from-foreground/5 via-transparent to-foreground/5 rounded-xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                <div className="relative bg-card/40 backdrop-blur-sm border border-border/60 rounded-xl overflow-hidden transition-all duration-300 hover:border-border hover:shadow-lg animate-in fade-in slide-in-from-bottom-5">
+                  <SnippetCard snippet={snippet} currentUserId={currentUserId} />
+                </div>
+              </div>
             ))}
           </div>
         ) : (
-          <div className="py-20 text-center border border-dashed border-neutral-200 rounded-xl bg-neutral-50/50">
-            <p className="text-neutral-500">This user hasn&apos;t published any snippets yet.</p>
+          <div className="py-32 text-center">
+            <div className="relative inline-block">
+              <div className="absolute -inset-8 bg-gradient-to-r from-foreground/5 via-transparent to-foreground/5 rounded-full blur-xl" />
+              <div className="relative bg-card/60 backdrop-blur-sm border border-border/40 rounded-3xl p-12 max-w-md shadow-sm">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-muted/30 flex items-center justify-center border border-border/30">
+                  <Code2 className="h-10 w-10 text-muted-foreground/50" />
+                </div>
+                <h3 className="text-xl font-light text-foreground mb-3">No contributions yet</h3>
+                <p className="text-muted-foreground/80 mb-8 leading-relaxed">
+                  This space is waiting for the first snippet to be shared. Great developers start
+                  by sharing their knowledge.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
