@@ -31,16 +31,23 @@ export async function updateSession(request: NextRequest) {
     data: { user }
   } = await supabase.auth.getUser()
 
+  const pathname = request.nextUrl.pathname
   const protectedPaths = ['/library', '/settings', '/create']
-
-  const isAccessingProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  )
+  const isAccessingProtectedPath = protectedPaths.some((path) => pathname.startsWith(path))
 
   if (!user && isAccessingProtectedPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('next', request.nextUrl.pathname)
+    url.searchParams.set('next', pathname)
+    return NextResponse.redirect(url)
+  }
+
+  const guestOnlyPaths = ['/login', '/register']
+  const isAccessingGuestPath = guestOnlyPaths.includes(pathname)
+
+  if (user && isAccessingGuestPath) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/library'
     return NextResponse.redirect(url)
   }
 

@@ -117,8 +117,8 @@ export default function LoginForm() {
               <Input
                 id="email"
                 name="email"
-                type="text" // Changed from 'email' to 'text' to allow usernames
-                placeholder="codestash_dev"
+                type="text"
+                placeholder="codestash_dev / code@stash.dev"
                 required
                 className="h-10 placeholder:text-muted-foreground"
               />

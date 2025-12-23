@@ -4,7 +4,19 @@ import { Snippet } from '@/lib/definitions'
 import { SnippetCard } from '@/features/snippets/components/snippet-card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/server'
-import { CalendarDays, Code2, Layers, Sparkles, Award, Globe, Quote } from 'lucide-react'
+import {
+  CalendarDays,
+  Code2,
+  Layers,
+  Sparkles,
+  Award,
+  Quote,
+  AtSign,
+  GitBranch,
+  Trophy,
+  Zap,
+  Star
+} from 'lucide-react'
 import { differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
 import { Metadata } from 'next'
 
@@ -50,7 +62,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
 
   const [profile] = await sql`
     SELECT id, name, image, bio, created_at, username
-    FROM users 
+    FROM users
     WHERE username = ${username}
   `
 
@@ -59,8 +71,8 @@ export default async function ProfilePage(props: ProfilePageProps) {
   }
 
   const snippets: Snippet[] = await sql`
-    SELECT 
-      s.*, 
+    SELECT
+      s.*,
       u.name as author_name,
       u.image as author_image,
       u.username as author_username,
@@ -68,7 +80,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
       (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
     FROM snippets s
     JOIN users u ON s.user_id = u.id
-    WHERE s.user_id = ${profile.id} 
+    WHERE s.user_id = ${profile.id}
     AND s.is_public = true
     ORDER BY s.created_at DESC
   `
@@ -101,6 +113,34 @@ export default async function ProfilePage(props: ProfilePageProps) {
     }
   ]
 
+  const getRank = (count: number) => {
+    if (count >= 20)
+      return {
+        label: 'Code Architect',
+        icon: Trophy,
+        color: 'text-amber-500 bg-amber-500/10 border-amber-500/20'
+      }
+    if (count >= 10)
+      return {
+        label: 'Library Builder',
+        icon: Zap,
+        color: 'text-violet-500 bg-violet-500/10 border-violet-500/20'
+      }
+    if (count >= 1)
+      return {
+        label: 'Contributor',
+        icon: GitBranch,
+        color: 'text-blue-500 bg-blue-500/10 border-blue-500/20'
+      }
+    return {
+      label: 'Stash Explorer',
+      icon: Star,
+      color: 'text-muted-foreground bg-muted/50 border-border/50'
+    }
+  }
+
+  const rank = getRank(snippets.length)
+
   return (
     <div className="min-h-screen bg-background">
       <div className="relative border-b border-border/40 bg-muted/10 dark:bg-background overflow-hidden">
@@ -112,18 +152,23 @@ export default async function ProfilePage(props: ProfilePageProps) {
           }}
         ></div>
 
-        <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-transparent to-background pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-b from-background/0 via-transparent to-background pointer-events-none" />
 
         <div className="container max-w-6xl mx-auto px-6 relative">
           <div className="pt-28 pb-20">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
               <div className="relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-br from-foreground/10 via-transparent to-foreground/10 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute -inset-0.5 bg-linear-to-br from-foreground/10 via-transparent to-foreground/10 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
 
-                <Avatar className="relative h-32 w-32 md:h-40 md:w-40 border-[4px] border-background shadow-xl">
+                <Avatar className="relative h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-xl">
                   <AvatarImage src={profile.image || undefined} className="object-cover" />
                   <AvatarFallback className="text-4xl font-light bg-muted text-foreground">
-                    {profile.name?.charAt(0).toUpperCase()}
+                    {profile.name
+                      ?.split(' ')
+                      .slice(0, 2)
+                      .map((chunk: string) => chunk[0])
+                      .join('')
+                      .toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
 
@@ -140,14 +185,19 @@ export default async function ProfilePage(props: ProfilePageProps) {
                     <h1 className="text-4xl md:text-5xl font-light tracking-tight text-foreground leading-tight">
                       {profile.name}
                     </h1>
-                    <div className="flex items-center justify-center md:justify-start gap-3 mt-3">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/50">
-                        <Globe className="h-3 w-3" />
-                        <code className="font-mono tracking-wider">@{profile.username}</code>
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-4">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-muted/50 border border-border/50 transition-colors hover:bg-muted hover:border-border">
+                        <AtSign className="h-3.5 w-3.5 text-muted-foreground/70" />
+                        <span className="font-mono text-xs text-foreground/90 font-medium tracking-wide">
+                          {profile.username}
+                        </span>
                       </div>
-                      <span className="text-sm text-muted-foreground/80">
-                        {snippets.length === 0 ? 'New Member' : 'Active Contributor'}
-                      </span>
+                      <div
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${rank.color} transition-all`}
+                      >
+                        <rank.icon className="h-3.5 w-3.5" />
+                        <span className="text-xs font-medium">{rank.label}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -196,7 +246,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="absolute -inset-1 bg-gradient-to-r from-foreground/5 to-transparent rounded-full blur" />
+                <div className="absolute -inset-1 bg-linear-to-r from-foreground/5 to-transparent rounded-full blur" />
                 <div className="relative bg-card border border-border rounded-xl p-2.5 shadow-sm">
                   <Layers className="h-5 w-5 text-foreground/80" />
                 </div>
@@ -216,7 +266,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
             </div>
           </div>
 
-          <div className="h-px bg-gradient-to-r from-border/5 via-border/40 to-border/5" />
+          <div className="h-px bg-linear-to-r from-border/5 via-border/40 to-border/5" />
         </div>
 
         {snippets.length > 0 ? (
@@ -227,7 +277,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
                 className="group relative"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="absolute -inset-px bg-gradient-to-br from-foreground/5 via-transparent to-foreground/5 rounded-xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                <div className="absolute -inset-px bg-linear-to-br from-foreground/5 via-transparent to-foreground/5 rounded-xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
                 <div className="relative bg-card/40 backdrop-blur-sm border border-border/60 rounded-xl overflow-hidden transition-all duration-300 hover:border-border hover:shadow-lg animate-in fade-in slide-in-from-bottom-5">
                   <SnippetCard snippet={snippet} currentUserId={currentUserId} />
                 </div>
@@ -237,7 +287,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
         ) : (
           <div className="py-32 text-center">
             <div className="relative inline-block">
-              <div className="absolute -inset-8 bg-gradient-to-r from-foreground/5 via-transparent to-foreground/5 rounded-full blur-xl" />
+              <div className="absolute -inset-8 bg-linear-to-r from-foreground/5 via-transparent to-foreground/5 rounded-full blur-xl" />
               <div className="relative bg-card/60 backdrop-blur-sm border border-border/40 rounded-3xl p-12 max-w-md shadow-sm">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-muted/30 flex items-center justify-center border border-border/30">
                   <Code2 className="h-10 w-10 text-muted-foreground/50" />

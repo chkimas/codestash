@@ -164,3 +164,24 @@ export async function toggleFavorite(snippetId: string): Promise<ActionResult> {
 
   return success(undefined)
 }
+
+export async function deleteSnippets(ids: string[]) {
+  const supabase = await createClient()
+  const {
+    data: { user }
+  } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  try {
+    await sql`
+      DELETE FROM snippets
+      WHERE id = ANY(${ids})
+      AND user_id = ${user.id}
+    `
+    revalidatePath('/library')
+    return { success: true }
+  } catch {
+    return { error: 'Failed to delete snippets' }
+  }
+}

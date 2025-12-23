@@ -21,20 +21,23 @@ export async function MainNav() {
     data: { user }
   } = await supabase.auth.getUser()
 
-  const name = user?.user_metadata?.full_name || user?.email || 'User'
-  const avatarUrl = user?.user_metadata?.avatar_url || ''
-  // 1. Get the username from metadata (fallback to ID if missing)
-  const username = user?.user_metadata?.username || user?.id
+  const meta = user?.user_metadata || {}
+  const fullName = meta.name || meta.full_name
+  const username = meta.username || user?.id
+  const email = user?.email || ''
 
-  const initials = name
+  const displayName = fullName || username || email
+
+  const initials = displayName
+    ?.toString()
     .split(' ')
-    .map((part: string) => part[0] ?? '')
-    .join('')
     .slice(0, 2)
+    .map((part: string) => part[0])
+    .join('')
     .toUpperCase()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-backdrop-filter:bg-background/60">
       <div className="container flex h-14 items-center justify-between px-6 max-w-[1600px]">
         <div className="flex items-center">
           <Link
@@ -92,7 +95,7 @@ export async function MainNav() {
                     className="relative h-8 w-8 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0 ml-1"
                   >
                     <Avatar className="h-8 w-8 border border-border/50 transition-opacity hover:opacity-90">
-                      <AvatarImage src={avatarUrl} alt={name} />
+                      <AvatarImage src={meta.avatar_url || ''} alt={displayName} />
                       <AvatarFallback className="text-[10px] font-medium bg-muted text-muted-foreground">
                         {initials}
                       </AvatarFallback>
@@ -102,23 +105,24 @@ export async function MainNav() {
 
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
-                    {/* 2. Update Link to use username */}
                     <Link
                       href={`/u/${username}`}
                       className="flex flex-col space-y-1 cursor-pointer group"
                     >
                       <p className="text-sm font-medium leading-none text-foreground group-hover:text-primary transition-colors">
-                        {name}
+                        {displayName}
                       </p>
-                      <p className="text-xs leading-none text-muted-foreground truncate">
-                        {user?.email}
-                      </p>
+
+                      {email && email !== displayName && (
+                        <p className="text-xs leading-none text-muted-foreground truncate">
+                          {email}
+                        </p>
+                      )}
                     </Link>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
-                      {/* 3. Update Profile Link to use username */}
                       <Link href={`/u/${username}`} className="cursor-pointer">
                         <User className="mr-2 h-4 w-4 text-muted-foreground" />
                         <span>Your Profile</span>

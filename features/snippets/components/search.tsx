@@ -5,14 +5,21 @@ import { useSearchParams, usePathname, useRouter } from 'next/navigation'
 import { useDebounce } from 'use-debounce'
 import { SearchIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
-export default function Search({ placeholder }: { placeholder: string }) {
+export default function Search({
+  placeholder,
+  className
+}: {
+  placeholder: string
+  className?: string
+}) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const router = useRouter()
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('query')?.toString() || '')
+  const queryParam = searchParams.get('query')?.toString() || ''
+  const [searchTerm, setSearchTerm] = useState(queryParam)
   const [debouncedSearch] = useDebounce(searchTerm, 300)
-
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   const handleSearch = useCallback(
@@ -23,14 +30,25 @@ export default function Search({ placeholder }: { placeholder: string }) {
       } else {
         params.delete('query')
       }
-      router.push(`${pathname}?${params.toString()}`, { scroll: false })
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
     },
     [searchParams, pathname, router]
   )
 
   useEffect(() => {
-    handleSearch(debouncedSearch)
-  }, [debouncedSearch, handleSearch])
+    if (debouncedSearch !== queryParam) {
+      handleSearch(debouncedSearch)
+    }
+  }, [debouncedSearch, handleSearch, queryParam])
+
+  useEffect(() => {
+    if (queryParam === '' && searchTerm !== '') {
+      const timeoutId = setTimeout(() => {
+        setSearchTerm('')
+      }, 0)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [queryParam, searchTerm])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -54,16 +72,19 @@ export default function Search({ placeholder }: { placeholder: string }) {
   }, [])
 
   return (
-    <div className="relative flex w-full items-center">
-      <SearchIcon className="absolute left-4 h-4 w-4 text-muted-foreground" />
+    <div className={cn('relative flex w-full items-center', className)}>
+      <SearchIcon className="absolute left-3 h-4 w-4 text-muted-foreground" />
       <Input
         ref={inputRef}
-        className="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 text-foreground"
+        className={cn(
+          'w-full bg-muted/50 pl-9 pr-12 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0',
+          className
+        )}
         placeholder={placeholder}
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
       />
-      <div className="absolute right-4 hidden pointer-events-none select-none items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
+      <div className="absolute right-3 hidden pointer-events-none select-none items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
         <span>⌘</span>K
       </div>
     </div>
