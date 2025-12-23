@@ -39,6 +39,10 @@ export const CreateSnippetSchema = z.object({
 export const RegisterSchema = z
   .object({
     name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+    username: z
+      .string()
+      .min(3, { message: 'Username must be at least 3 characters' })
+      .regex(/^[a-zA-Z0-9_]+$/, { message: 'Only letters, numbers, and underscores allowed' }),
     email: z.string().email({ message: 'Please enter a valid email.' }),
     password: z.string().min(6, { message: 'Be at least 6 characters long.' }),
     confirmPassword: z.string().min(6, { message: 'Must be at least 6 characters.' })

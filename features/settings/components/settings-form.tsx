@@ -313,13 +313,13 @@ export function SettingsForm({
                   disabled={isDeletePending}
                   className="h-8 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" />
                   Delete account
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete account</AlertDialogTitle>
+                  <AlertDialogTitle>Account Deletion</AlertDialogTitle>
                   <AlertDialogDescription>
                     Are you sure you want to delete your account? All of your data will be
                     permanently removed. This action cannot be undone.

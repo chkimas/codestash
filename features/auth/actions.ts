@@ -18,40 +18,43 @@ export type AuthState =
   | { errorMessage?: string; message?: string; errors?: Record<string, string[]> | null }
   | undefined
 
-async function getSupabaseClient() {
-  return await createClient()
-}
-
 function failure(message: string, errors?: Record<string, string[]>): ActionResult {
   return { success: false, message, errors }
 }
 
 export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
-  const supabase = await getSupabaseClient()
+  const supabase = await createClient()
 
-  const email = formData.get('email') as string
+  const identifier = formData.get('email') as string
   const password = formData.get('password') as string
 
-  const LoginSchema = z.object({ email: z.string().email(), password: z.string().min(1) })
-  const validated = LoginSchema.safeParse({ email, password })
+  let emailToLogin = identifier
 
-  if (!validated.success) {
-    return {
-      errorMessage: 'Invalid email or password format',
-      errors: validated.error.flatten().fieldErrors
+  const isEmail = z.string().email().safeParse(identifier).success
+
+  if (!isEmail) {
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('email')
+      .ilike('username', identifier)
+      .single()
+
+    if (!userProfile?.email) {
+      return { errorMessage: 'Invalid username or password' }
     }
+
+    emailToLogin = userProfile.email
   }
 
   let shouldRedirectMFA = false
 
   try {
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: emailToLogin,
       password
     })
 
     if (error) {
-      console.error('[LOGIN_ERROR]', error.message)
       return { errorMessage: error.message }
     }
 
@@ -60,8 +63,7 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
     if (mfaStatus && mfaStatus.nextLevel === 'aal2' && mfaStatus.currentLevel === 'aal1') {
       shouldRedirectMFA = true
     }
-  } catch (error) {
-    console.error('[LOGIN_UNEXPECTED_ERROR]', error)
+  } catch {
     return { errorMessage: 'Login failed. Please try again.' }
   }
 
@@ -73,33 +75,48 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   redirect('/library')
 }
 
+export async function loginWithSocial(provider: 'github' | 'google') {
+  const supabase = await createClient()
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
+  const { data } = await supabase.auth.signInWithOAuth({
+    provider: provider,
+    options: {
+      redirectTo: `${appUrl}/auth/callback?next=/library`
+    }
+  })
+
+  if (data.url) {
+    redirect(data.url)
+  }
+}
+
 export async function registerUser(
   formData: z.infer<typeof RegisterSchema>
 ): Promise<ActionResult> {
-  const supabase = await getSupabaseClient()
+  const supabase = await createClient()
 
   const validatedFields = RegisterSchema.safeParse(formData)
   if (!validatedFields.success) {
     return failure('Validation failed', validatedFields.error.flatten().fieldErrors)
   }
 
-  const { email, password, name } = validatedFields.data
+  const { email, password, name, username } = validatedFields.data
 
   try {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: name }
+        data: { name, username }
       }
     })
 
     if (error) {
-      console.error('[REGISTER_ERROR]', error.message)
       return failure(error.message)
     }
-  } catch (error) {
-    console.error('[REGISTER_UNEXPECTED_ERROR]', error)
+  } catch {
     return failure('Registration failed. Please try again.')
   }
 
@@ -107,7 +124,7 @@ export async function registerUser(
 }
 
 export async function logout(): Promise<void> {
-  const supabase = await getSupabaseClient()
+  const supabase = await createClient()
   await supabase.auth.signOut({ scope: 'local' })
   redirect('/')
 }

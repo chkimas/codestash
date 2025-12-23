@@ -23,6 +23,8 @@ export async function MainNav() {
 
   const name = user?.user_metadata?.full_name || user?.email || 'User'
   const avatarUrl = user?.user_metadata?.avatar_url || ''
+  // 1. Get the username from metadata (fallback to ID if missing)
+  const username = user?.user_metadata?.username || user?.id
 
   const initials = name
     .split(' ')
@@ -100,8 +102,9 @@ export async function MainNav() {
 
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
+                    {/* 2. Update Link to use username */}
                     <Link
-                      href={`/u/${user.id}`}
+                      href={`/u/${username}`}
                       className="flex flex-col space-y-1 cursor-pointer group"
                     >
                       <p className="text-sm font-medium leading-none text-foreground group-hover:text-primary transition-colors">
@@ -115,7 +118,8 @@ export async function MainNav() {
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
-                      <Link href={`/u/${user.id}`} className="cursor-pointer">
+                      {/* 3. Update Profile Link to use username */}
+                      <Link href={`/u/${username}`} className="cursor-pointer">
                         <User className="mr-2 h-4 w-4 text-muted-foreground" />
                         <span>Your Profile</span>
                       </Link>

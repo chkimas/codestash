@@ -10,12 +10,8 @@ import { Metadata } from 'next'
 
 interface ProfilePageProps {
   params: Promise<{
-    userId: string
+    username: string
   }>
-}
-
-function isValidUUID(uuid: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)
 }
 
 function getMemberDuration(date: Date) {
@@ -30,8 +26,12 @@ function getMemberDuration(date: Date) {
 }
 
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
-  const { userId } = await params
-  const [user] = await sql`SELECT name FROM users WHERE id = ${userId}`
+  const { username } = await params
+  const decodedUsername = decodeURIComponent(username)
+
+  const [user] = await sql`
+    SELECT name FROM users WHERE username = ${decodedUsername}
+  `
 
   return {
     title: user?.name || 'Profile'
@@ -40,11 +40,7 @@ export async function generateMetadata({ params }: ProfilePageProps): Promise<Me
 
 export default async function ProfilePage(props: ProfilePageProps) {
   const params = await props.params
-  const userId = params.userId
-
-  if (!isValidUUID(userId)) {
-    notFound()
-  }
+  const username = decodeURIComponent(params.username)
 
   const supabase = await createClient()
   const {
@@ -52,11 +48,10 @@ export default async function ProfilePage(props: ProfilePageProps) {
   } = await supabase.auth.getUser()
   const currentUserId = currentUser?.id ?? null
 
-  // Fetch Profile with BIO
   const [profile] = await sql`
-    SELECT id, name, image, bio, created_at 
+    SELECT id, name, image, bio, created_at, username
     FROM users 
-    WHERE id = ${userId}
+    WHERE username = ${username}
   `
 
   if (!profile) {
@@ -68,19 +63,18 @@ export default async function ProfilePage(props: ProfilePageProps) {
       s.*, 
       u.name as author_name,
       u.image as author_image,
+      u.username as author_username,
       EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${currentUserId}) as is_favorited,
       (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
     FROM snippets s
     JOIN users u ON s.user_id = u.id
-    WHERE s.user_id = ${userId} 
+    WHERE s.user_id = ${profile.id} 
     AND s.is_public = true
     ORDER BY s.created_at DESC
   `
 
   const totalFavorites = snippets.reduce((acc, snippet) => acc + (snippet.favorite_count || 0), 0)
   const memberSince = new Date(profile.created_at)
-
-  // FIX: Removing comma from year (use String instead of toLocaleString for year)
   const joinYear = memberSince.getFullYear().toString()
 
   const stats = [
@@ -100,18 +94,16 @@ export default async function ProfilePage(props: ProfilePageProps) {
     },
     {
       label: 'Member Since',
-      value: joinYear, // Fixed: No comma (e.g. "2025")
+      value: joinYear,
       icon: CalendarDays,
-      description: `${getMemberDuration(memberSince)} with us`, // Smart duration
+      description: `${getMemberDuration(memberSince)} with us`,
       accent: 'text-foreground'
     }
   ]
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header with Background Pattern */}
       <div className="relative border-b border-border/40 bg-muted/10 dark:bg-background overflow-hidden">
-        {/* Subtle Grid/Dot Pattern Background */}
         <div
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
           style={{
@@ -126,7 +118,6 @@ export default async function ProfilePage(props: ProfilePageProps) {
           <div className="pt-28 pb-20">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
               <div className="relative group">
-                {/* Avatar Glow */}
                 <div className="absolute -inset-0.5 bg-gradient-to-br from-foreground/10 via-transparent to-foreground/10 rounded-full blur opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
 
                 <Avatar className="relative h-32 w-32 md:h-40 md:w-40 border-[4px] border-background shadow-xl">
@@ -152,9 +143,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
                     <div className="flex items-center justify-center md:justify-start gap-3 mt-3">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/60 text-xs font-medium text-muted-foreground border border-border/50">
                         <Globe className="h-3 w-3" />
-                        <code className="font-mono tracking-wider">
-                          {profile.id.slice(0, 12)}...
-                        </code>
+                        <code className="font-mono tracking-wider">@{profile.username}</code>
                       </div>
                       <span className="text-sm text-muted-foreground/80">
                         {snippets.length === 0 ? 'New Member' : 'Active Contributor'}
@@ -162,7 +151,6 @@ export default async function ProfilePage(props: ProfilePageProps) {
                     </div>
                   </div>
 
-                  {/* CUSTOM BIO SECTION */}
                   <div className="relative max-w-2xl mx-auto md:mx-0">
                     {profile.bio ? (
                       <p className="text-lg text-foreground/80 leading-relaxed font-light">
