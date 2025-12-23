@@ -1,12 +1,17 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { RegisterSchema } from '@/lib/definitions'
-import { registerUser, loginWithSocial, type RegisterResult } from '@/features/auth/actions'
+import {
+  registerUser,
+  loginWithSocial,
+  type RegisterResult,
+  checkUsernameAvailability // <--- Added
+} from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -17,14 +22,20 @@ import {
   FormLabel,
   FormMessage
 } from '@/components/ui/form'
-import { Loader2, Code2, ArrowRight, Github } from 'lucide-react'
+import { Loader2, Code2, ArrowRight, Github, Check, X } from 'lucide-react'
 import { PasswordInput } from '@/components/password-input'
+import { useDebounce } from 'use-debounce' // <--- Added
 
 type RegisterInput = z.infer<typeof RegisterSchema>
 
 export default function RegisterPage() {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
+
+  // Username Availability State
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'loading' | 'available' | 'taken'>(
+    'idle'
+  )
 
   const form = useForm<RegisterInput>({
     resolver: zodResolver(RegisterSchema),
@@ -37,7 +48,33 @@ export default function RegisterPage() {
     }
   })
 
+  const usernameValue = useWatch({
+    control: form.control,
+    name: 'username'
+  })
+  const [debouncedUsername] = useDebounce(usernameValue, 500)
+
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!debouncedUsername || debouncedUsername.length < 3) {
+        setUsernameStatus('idle')
+        return
+      }
+
+      setUsernameStatus('loading')
+      const result = await checkUsernameAvailability(debouncedUsername)
+      setUsernameStatus(result.available ? 'available' : 'taken')
+    }
+
+    checkAvailability()
+  }, [debouncedUsername])
+
   const onSubmit = (values: RegisterInput) => {
+    if (usernameStatus === 'taken') {
+      form.setError('username', { message: 'Username is already taken' })
+      return
+    }
+
     setServerError(null)
 
     startTransition(async () => {
@@ -108,7 +145,6 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* SOCIAL REGISTER BUTTONS */}
           <div className="grid grid-cols-2 gap-3">
             <Button variant="outline" className="w-full" onClick={() => loginWithSocial('github')}>
               <Github className="mr-2 h-4 w-4" />
@@ -162,11 +198,27 @@ export default function RegisterPage() {
                         <Input
                           placeholder="codestash_dev"
                           {...field}
-                          className="pl-[105px] h-10 placeholder:text-muted-foreground font-mono text-sm"
+                          className="pl-[105px] pr-10 h-10 placeholder:text-muted-foreground font-mono text-sm"
                         />
+
+                        <div className="absolute right-3 top-3">
+                          {usernameStatus === 'loading' && (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                          {usernameStatus === 'available' && (
+                            <Check className="h-4 w-4 text-green-500" />
+                          )}
+                          {usernameStatus === 'taken' && <X className="h-4 w-4 text-destructive" />}
+                        </div>
                       </div>
                     </FormControl>
-                    <FormMessage className="text-xs font-normal" />
+                    {usernameStatus === 'taken' ? (
+                      <p className="text-[0.8rem] font-medium text-destructive">
+                        Username is already taken
+                      </p>
+                    ) : (
+                      <FormMessage className="text-xs font-normal" />
+                    )}
                   </FormItem>
                 )}
               />
@@ -253,7 +305,7 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 className="w-full h-10 bg-primary text-primary-foreground font-medium hover:bg-primary/90"
-                disabled={isPending}
+                disabled={isPending || usernameStatus === 'taken'}
               >
                 {isPending ? (
                   <span className="flex items-center gap-2">

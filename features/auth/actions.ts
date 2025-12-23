@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { RegisterSchema } from '@/lib/definitions'
+import sql from '@/db/client'
 
 type ActionResult<T = void> =
   | { success: true; data: T }
@@ -158,4 +159,18 @@ export async function updatePasswordFromRecovery(password: string) {
   }
 
   return { success: true }
+}
+
+export async function checkUsernameAvailability(username: string) {
+  if (!username || username.length < 3) return { available: false }
+
+  try {
+    const users = await sql`
+      SELECT 1 FROM users WHERE username = ${username}
+    `
+    const isTaken = users.length > 0
+    return { available: !isTaken }
+  } catch {
+    return { available: false }
+  }
 }
