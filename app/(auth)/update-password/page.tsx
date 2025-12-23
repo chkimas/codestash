@@ -11,7 +11,7 @@ import { PasswordInput } from '@/components/password-input'
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage
 } from '@/components/ui/form'
-import { updatePassword } from '@/features/auth/actions'
+import { updatePasswordFromRecovery } from '@/features/auth/actions'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const formSchema = z.object({
@@ -33,8 +33,8 @@ export default function UpdatePasswordPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setError(null)
-    const result = await updatePassword(values.password)
-    
+    const result = await updatePasswordFromRecovery(values.password)
+
     if (result.error) {
       setError(result.error)
     } else {

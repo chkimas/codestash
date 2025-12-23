@@ -146,16 +146,7 @@ export async function forgotPassword(email: string): Promise<ActionResult> {
   return { success: true, data: undefined }
 }
 
-export async function updatePasswordFromRecovery(
-  prevState: AuthState,
-  formData: FormData
-): Promise<AuthState> {
-  const password = formData.get('password') as string
-
-  if (!password || password.length < 6) {
-    return { errorMessage: 'Password must be at least 6 characters' }
-  }
-
+export async function updatePasswordFromRecovery(password: string) {
   const supabase = await createClient()
 
   const { error } = await supabase.auth.updateUser({
@@ -163,8 +154,8 @@ export async function updatePasswordFromRecovery(
   })
 
   if (error) {
-    return { errorMessage: error.message }
+    return { error: error.message }
   }
 
-  redirect('/')
+  return { success: true }
 }
