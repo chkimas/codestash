@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Metadata } from 'next'
@@ -60,7 +61,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
         >
           {children}
-          <AuthToaster />
+          <Suspense fallback={null}>
+            <AuthToaster />
+          </Suspense>
           <Toaster />
         </ThemeProvider>
       </body>
