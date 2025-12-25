@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import sql from '@/db/client'
+import { createClient } from '@/lib/supabase/server'
 
 export const alt = 'Snippet Preview'
 export const size = {
@@ -11,14 +11,21 @@ export const contentType = 'image/png'
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
-  const [snippet] = await sql`
-    SELECT title, language, u.name as author 
-    FROM snippets 
-    LEFT JOIN users u ON snippets.user_id = u.id 
-    WHERE snippets.id = ${id}
-  `
+  const supabase = await createClient()
 
-  if (!snippet) {
+  const { data: snippet, error } = await supabase
+    .from('snippets')
+    .select(
+      `
+      title,
+      language,
+      users!inner(name)
+    `
+    )
+    .eq('id', id)
+    .single()
+
+  if (error || !snippet) {
     return new ImageResponse(
       (
         <div
@@ -38,6 +45,11 @@ export default async function Image({ params }: { params: Promise<{ id: string }
       )
     )
   }
+
+  // Extract author name from joined data
+  const authorName = Array.isArray(snippet.users)
+    ? snippet.users[0]?.name
+    : (snippet.users as { name?: string })?.name || 'Anonymous'
 
   return new ImageResponse(
     (
@@ -114,9 +126,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             }}
           >
             <div style={{ color: '#a1a1aa', fontSize: 30 }}>by</div>
-            <div style={{ color: 'white', fontSize: 30, fontWeight: 600 }}>
-              {snippet.author || 'Anonymous'}
-            </div>
+            <div style={{ color: 'white', fontSize: 30, fontWeight: 600 }}>{authorName}</div>
           </div>
         </div>
 

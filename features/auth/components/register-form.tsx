@@ -5,15 +5,18 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { RegisterSchema } from '@/lib/definitions'
+import { TermsModal, PrivacyModal } from '@/components/auth/legal-modals'
 import {
   registerUser,
   loginWithSocial,
   type RegisterResult,
-  checkUsernameAvailability // <--- Added
+  checkUsernameAvailability
 } from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -24,11 +27,13 @@ import {
 } from '@/components/ui/form'
 import { Loader2, Code2, ArrowRight, Github, Check, X } from 'lucide-react'
 import { PasswordInput } from '@/components/password-input'
-import { useDebounce } from 'use-debounce' // <--- Added
+import { useDebounce } from 'use-debounce'
+import { toast } from 'sonner'
 
 type RegisterInput = z.infer<typeof RegisterSchema>
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -44,14 +49,22 @@ export default function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
-      username: ''
+      username: '',
+      terms: false
     }
   })
 
+  // Safe Watch with React Hook Form
   const usernameValue = useWatch({
     control: form.control,
     name: 'username'
   })
+
+  const passwordValue = useWatch({ control: form.control, name: 'password' })
+  const confirmPasswordValue = useWatch({ control: form.control, name: 'confirmPassword' })
+  const passwordsMatch =
+    passwordValue && confirmPasswordValue && passwordValue === confirmPasswordValue
+
   const [debouncedUsername] = useDebounce(usernameValue, 500)
 
   useEffect(() => {
@@ -63,7 +76,14 @@ export default function RegisterPage() {
 
       setUsernameStatus('loading')
       const result = await checkUsernameAvailability(debouncedUsername)
-      setUsernameStatus(result.available ? 'available' : 'taken')
+
+      if (result.success) {
+        const isAvailable = result.available ?? result.data?.available ?? false
+        setUsernameStatus(isAvailable ? 'available' : 'taken')
+      } else {
+        setUsernameStatus('taken')
+        toast.error(result.message || 'Failed to check username availability')
+      }
     }
 
     checkAvailability()
@@ -72,6 +92,11 @@ export default function RegisterPage() {
   const onSubmit = (values: RegisterInput) => {
     if (usernameStatus === 'taken') {
       form.setError('username', { message: 'Username is already taken' })
+      return
+    }
+
+    if (usernameStatus === 'loading') {
+      toast.error('Please wait for username check to complete')
       return
     }
 
@@ -91,12 +116,19 @@ export default function RegisterPage() {
             })
           })
         }
+      } else {
+        toast.success(
+          result.message ||
+            'Registration successful! Please check your email to verify your account.'
+        )
+
+        router.push('/login?message=Check your email to verify your account.')
       }
     })
   }
 
   return (
-    <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
+    <div className="w-full min-h-dvh lg:grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-10 border-r border-border dark:bg-white dark:text-black bg-black text-white">
         <div className="flex items-center gap-2 font-medium">
           <Link
@@ -136,9 +168,18 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-center py-12 px-8 bg-background text-foreground">
+      <div className="flex items-center justify-center py-12 px-4 sm:px-8 bg-background text-foreground">
         <div className="mx-auto w-full max-w-[400px] space-y-8">
-          <div className="flex flex-col gap-2">
+          <div className="flex lg:hidden flex-col items-center gap-2 mb-8">
+            <Link href="/" className="flex items-center gap-2 font-medium">
+              <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
+                <Code2 className="h-4 w-4" />
+              </div>
+              <span className="text-lg font-bold tracking-tight">CodeStash</span>
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-2 text-center lg:text-left">
             <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
             <p className="text-muted-foreground text-sm">
               Enter your details below to get started with CodeStash.
@@ -146,11 +187,21 @@ export default function RegisterPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className="w-full" onClick={() => loginWithSocial('github')}>
+            <Button
+              variant="outline"
+              className="w-full h-10"
+              onClick={() => loginWithSocial('github')}
+              type="button"
+            >
               <Github className="mr-2 h-4 w-4" />
               GitHub
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => loginWithSocial('google')}>
+            <Button
+              variant="outline"
+              className="w-full h-10"
+              onClick={() => loginWithSocial('google')}
+              type="button"
+            >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -199,6 +250,12 @@ export default function RegisterPage() {
                           placeholder="codestash_dev"
                           {...field}
                           className="pl-[105px] pr-10 h-10 placeholder:text-muted-foreground font-mono text-sm"
+                          onChange={(e) => {
+                            field.onChange(e)
+                            if (e.target.value !== debouncedUsername) {
+                              setUsernameStatus('idle')
+                            }
+                          }}
                         />
 
                         <div className="absolute right-3 top-3">
@@ -228,7 +285,7 @@ export default function RegisterPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-sm font-medium">Full Name</FormLabel>
+                    <FormLabel className="text-sm font-medium">Display Name</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="e.g. Code Stash"
@@ -267,11 +324,18 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel className="text-sm font-medium">Password</FormLabel>
                     <FormControl>
-                      <PasswordInput
-                        placeholder="Create a password"
-                        {...field}
-                        className="h-10 placeholder:text-muted-foreground font-mono text-sm"
-                      />
+                      <div className="relative">
+                        <PasswordInput
+                          placeholder="Create a password"
+                          {...field}
+                          className="h-10 placeholder:text-muted-foreground font-mono text-sm pr-10"
+                        />
+                        {passwordsMatch && (
+                          <div className="absolute right-10 top-3 pointer-events-none animate-in fade-in zoom-in duration-300">
+                            <Check className="h-4 w-4 text-green-500" />
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage className="text-xs font-normal" />
                   </FormItem>
@@ -285,11 +349,18 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel className="text-sm font-medium">Confirm Password</FormLabel>
                     <FormControl>
-                      <PasswordInput
-                        placeholder="Confirm your password"
-                        {...field}
-                        className="h-10 placeholder:text-muted-foreground font-mono text-sm"
-                      />
+                      <div className="relative">
+                        <PasswordInput
+                          placeholder="Confirm your password"
+                          {...field}
+                          className="h-10 placeholder:text-muted-foreground font-mono text-sm pr-10"
+                        />
+                        {passwordsMatch && (
+                          <div className="absolute right-10 top-3 pointer-events-none animate-in fade-in zoom-in duration-300">
+                            <Check className="h-4 w-4 text-green-500" />
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage className="text-xs font-normal" />
                   </FormItem>
@@ -302,10 +373,44 @@ export default function RegisterPage() {
                 </div>
               )}
 
+              <FormField
+                control={form.control}
+                name="terms"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm bg-background/50">
+                    <FormControl>
+                      {/* mt-1 aligns the box with the first line of text */}
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        className="mt-1"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-normal">
+                      <FormLabel className="text-sm text-muted-foreground font-normal">
+                        I agree to the{' '}
+                        <TermsModal>
+                          <span className="underline hover:text-primary cursor-pointer transition-colors">
+                            Terms of Service
+                          </span>
+                        </TermsModal>{' '}
+                        and{' '}
+                        <PrivacyModal>
+                          <span className="underline hover:text-primary cursor-pointer transition-colors">
+                            Privacy Policy
+                          </span>
+                        </PrivacyModal>
+                      </FormLabel>
+                      <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
+
               <Button
                 type="submit"
                 className="w-full h-10 bg-primary text-primary-foreground font-medium hover:bg-primary/90"
-                disabled={isPending || usernameStatus === 'taken'}
+                disabled={isPending || usernameStatus === 'taken' || usernameStatus === 'loading'}
               >
                 {isPending ? (
                   <span className="flex items-center gap-2">

@@ -1,187 +1,321 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
-import sql from '@/db/client'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { CreateSnippetSchema } from '@/lib/definitions'
+import { APP_LIMITS, ERROR_MESSAGES } from '@/lib/constants'
 
-type ActionResult<T = void> =
-  | { success: true; data: T }
-  | { success: false; message: string; errors?: Record<string, string[]> }
+// Types - Fixed to be more flexible
+type SuccessResult<T = undefined> = {
+  success: true
+  data?: T
+  message?: string
+}
+
+type ErrorResult = {
+  success: false
+  message: string
+  errors?: Record<string, string[]>
+  error?: string // For compatibility with existing code
+}
+
+type ActionResult<T = undefined> = SuccessResult<T> | ErrorResult
 
 type SnippetFormData = z.infer<typeof CreateSnippetSchema>
 
-async function getCurrentUserId(): Promise<string | null> {
-  const supabase = await createClient()
-  const {
-    data: { user }
-  } = await supabase.auth.getUser()
-  return user?.id ?? null
+// Rate limiting (in-memory for free tier)
+const userActionTimestamps = new Map<string, number[]>()
+function checkRateLimit(userId: string, action: 'create' | 'delete' | 'update'): boolean {
+  const now = Date.now()
+  const userActions = userActionTimestamps.get(userId) || []
+  const recentActions = userActions.filter((timestamp) => now - timestamp < 3600000)
+
+  const limit = action === 'create' ? APP_LIMITS.RATE_LIMIT.SNIPPET_CREATIONS_PER_HOUR : 100
+
+  if (recentActions.length >= limit) return false
+
+  recentActions.push(now)
+  userActionTimestamps.set(userId, recentActions)
+  return true
 }
 
-function success<T>(data: T): ActionResult<T> {
-  return { success: true, data }
-}
-
-function failure(message: string, errors?: Record<string, string[]>): ActionResult {
-  return { success: false, message, errors }
-}
-
-export async function createSnippet(values: SnippetFormData): Promise<ActionResult> {
-  const userId = await getCurrentUserId()
-  if (!userId) return failure('User not authenticated')
-
-  const parsed = CreateSnippetSchema.safeParse(values)
-  if (!parsed.success) {
-    return failure('Validation failed', parsed.error.flatten().fieldErrors)
+// Helper for consistent error responses
+function createErrorResult(message: string, errors?: Record<string, string[]>): ErrorResult {
+  return {
+    success: false,
+    message,
+    errors,
+    error: message // For compatibility
   }
+}
 
-  const { title, code, language, description, is_public } = parsed.data
+// Helper for success responses
+function createSuccessResult<T>(data?: T, message?: string): SuccessResult<T> {
+  return {
+    success: true,
+    data,
+    message
+  }
+}
 
+export async function createSnippet(
+  values: SnippetFormData
+): Promise<ActionResult<{ snippetId: string }>> {
   try {
-    await sql`
-      INSERT INTO snippets (user_id, title, code, language, description, is_public)
-      VALUES (${userId}, ${title}, ${code}, ${language}, ${description ?? null}, ${is_public})
-    `
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return createErrorResult(ERROR_MESSAGES.AUTH.UNAUTHORIZED)
+    }
+
+    if (!checkRateLimit(user.id, 'create')) {
+      return createErrorResult(ERROR_MESSAGES.GENERAL.RATE_LIMITED)
+    }
+
+    // Check snippet count
+    const { count, error: countError } = await supabase
+      .from('snippets')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+
+    if (countError) throw countError
+    if ((count || 0) >= APP_LIMITS.SNIPPET.PER_USER_MAX) {
+      return createErrorResult(ERROR_MESSAGES.SNIPPET.LIMIT_REACHED)
+    }
+
+    const parsed = CreateSnippetSchema.safeParse(values)
+    if (!parsed.success) {
+      return createErrorResult(
+        ERROR_MESSAGES.VALIDATION.REQUIRED,
+        parsed.error.flatten().fieldErrors
+      )
+    }
+
+    const { title, code, language, description, is_public } = parsed.data
+
+    const { data, error } = await supabase
+      .from('snippets')
+      .insert({
+        user_id: user.id,
+        title,
+        code,
+        language,
+        description: description || null,
+        is_public
+      })
+      .select('id')
+      .single()
+
+    if (error) throw error
 
     revalidatePath('/library')
-  } catch (error) {
-    console.error('[CREATE_SNIPPET_ERROR]', {
-      userId,
-      title: title.slice(0, 50),
-      error
-    })
-    return failure('Failed to create snippet')
-  }
+    revalidatePath('/')
 
-  redirect('/library')
+    return createSuccessResult({ snippetId: data.id }, 'Snippet created successfully')
+  } catch (error) {
+    console.error('[CREATE_SNIPPET_ERROR]', error)
+    return createErrorResult(ERROR_MESSAGES.GENERAL.SERVER_ERROR)
+  }
 }
 
 export async function deleteSnippet(id: string): Promise<ActionResult> {
-  const userId = await getCurrentUserId()
-  if (!userId) return failure('Unauthorized')
-
   try {
-    const result = await sql`
-      DELETE FROM snippets
-      WHERE id = ${id} AND user_id = ${userId}
-      RETURNING id
-    `
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser()
 
-    if (result.length === 0) {
-      return failure('Snippet not found or unauthorized')
+    if (authError || !user) {
+      return createErrorResult(ERROR_MESSAGES.AUTH.UNAUTHORIZED)
     }
 
-    revalidatePath('/library')
-  } catch (error) {
-    console.error('[DELETE_SNIPPET_ERROR]', { userId, snippetId: id, error })
-    return failure('Failed to delete snippet')
-  }
+    const { error } = await supabase.from('snippets').delete().eq('id', id).eq('user_id', user.id)
 
-  redirect('/library')
+    if (error) throw error
+
+    revalidatePath('/library')
+    revalidatePath('/')
+    revalidatePath(`/library/${id}`)
+
+    return createSuccessResult(undefined, 'Snippet deleted successfully')
+  } catch (error) {
+    console.error('[DELETE_SNIPPET_ERROR]', error)
+    return createErrorResult(ERROR_MESSAGES.GENERAL.SERVER_ERROR)
+  }
 }
 
 export async function updateSnippet(id: string, values: SnippetFormData): Promise<ActionResult> {
-  const userId = await getCurrentUserId()
-  if (!userId) return failure('Unauthorized')
-
-  const parsed = CreateSnippetSchema.safeParse(values)
-  if (!parsed.success) {
-    return failure('Validation failed', parsed.error.flatten().fieldErrors)
-  }
-
-  const { title, code, language, description, is_public } = parsed.data
-
   try {
-    const result = await sql`
-      UPDATE snippets
-      SET
-        title = ${title},
-        code = ${code},
-        language = ${language},
-        description = ${description ?? null},
-        is_public = ${is_public},
-        updated_at = NOW()
-      WHERE id = ${id} AND user_id = ${userId}
-      RETURNING id
-    `
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser()
 
-    if (result.length === 0) {
-      return failure('Snippet not found or unauthorized')
+    if (authError || !user) {
+      return createErrorResult(ERROR_MESSAGES.AUTH.UNAUTHORIZED)
     }
+
+    const parsed = CreateSnippetSchema.safeParse(values)
+    if (!parsed.success) {
+      return createErrorResult(
+        ERROR_MESSAGES.VALIDATION.REQUIRED,
+        parsed.error.flatten().fieldErrors
+      )
+    }
+
+    const { title, code, language, description, is_public } = parsed.data
+
+    const { error } = await supabase
+      .from('snippets')
+      .update({
+        title,
+        code,
+        language,
+        description: description || null,
+        is_public,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) throw error
 
     revalidatePath('/library')
     revalidatePath(`/library/${id}`)
-  } catch (error) {
-    console.error('[UPDATE_SNIPPET_ERROR]', {
-      userId,
-      snippetId: id,
-      title: title.slice(0, 50),
-      error
-    })
-    return failure('Failed to update snippet')
-  }
 
-  redirect(`/library/${id}`)
+    return createSuccessResult(undefined, 'Snippet updated successfully')
+  } catch (error) {
+    console.error('[UPDATE_SNIPPET_ERROR]', error)
+    return createErrorResult(ERROR_MESSAGES.GENERAL.SERVER_ERROR)
+  }
 }
 
-export async function toggleFavorite(snippetId: string): Promise<ActionResult> {
-  const userId = await getCurrentUserId()
-  if (!userId) return failure('Unauthorized')
-
+export async function toggleFavorite(
+  snippetId: string
+): Promise<ActionResult<{ isFavorited: boolean }>> {
   try {
-    const existing = await sql`
-      SELECT 1
-      FROM favorites
-      WHERE user_id = ${userId} AND snippet_id = ${snippetId}
-    `
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser()
 
-    if (existing.length > 0) {
-      await sql`
-        DELETE FROM favorites
-        WHERE user_id = ${userId} AND snippet_id = ${snippetId}
-      `
+    if (authError || !user) {
+      return createErrorResult(ERROR_MESSAGES.AUTH.UNAUTHORIZED)
+    }
+
+    // Check snippet access
+    const { data: snippet, error: snippetError } = await supabase
+      .from('snippets')
+      .select('is_public, user_id')
+      .eq('id', snippetId)
+      .single()
+
+    if (snippetError) throw snippetError
+    if (!snippet.is_public && snippet.user_id !== user.id) {
+      return createErrorResult(ERROR_MESSAGES.SNIPPET.ACCESS_DENIED)
+    }
+
+    // Check existing favorite
+    const { data: existing } = await supabase
+      .from('favorites')
+      .select()
+      .eq('user_id', user.id)
+      .eq('snippet_id', snippetId)
+      .maybeSingle()
+
+    if (existing) {
+      // Remove favorite
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('snippet_id', snippetId)
+
+      if (error) throw error
     } else {
-      await sql`
-        INSERT INTO favorites (user_id, snippet_id)
-        VALUES (${userId}, ${snippetId})
-      `
+      // Add favorite
+      const { error } = await supabase.from('favorites').insert({
+        user_id: user.id,
+        snippet_id: snippetId
+      })
+
+      if (error) throw error
     }
 
     revalidatePath('/')
     revalidatePath('/library')
     revalidatePath(`/library/${snippetId}`)
-  } catch (error) {
-    console.error('[TOGGLE_FAVORITE_ERROR]', {
-      userId,
-      snippetId,
-      error
-    })
-    return failure('Failed to toggle favorite')
-  }
 
-  return success(undefined)
+    return createSuccessResult(
+      { isFavorited: !existing },
+      existing ? 'Removed from favorites' : 'Added to favorites'
+    )
+  } catch (error) {
+    console.error('[TOGGLE_FAVORITE_ERROR]', error)
+    return createErrorResult(ERROR_MESSAGES.GENERAL.SERVER_ERROR)
+  }
 }
 
-export async function deleteSnippets(ids: string[]) {
-  const supabase = await createClient()
-  const {
-    data: { user }
-  } = await supabase.auth.getUser()
-
-  if (!user) return { error: 'Unauthorized' }
-
+export async function deleteSnippets(
+  ids: string[]
+): Promise<ActionResult<{ deletedCount: number }>> {
   try {
-    await sql`
-      DELETE FROM snippets
-      WHERE id = ANY(${ids})
-      AND user_id = ${user.id}
-    `
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return createErrorResult(ERROR_MESSAGES.AUTH.UNAUTHORIZED)
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return createErrorResult('No snippets selected')
+    }
+
+    // Validate UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const validIds = ids.filter((id) => uuidRegex.test(id))
+
+    if (validIds.length !== ids.length) {
+      return createErrorResult('Invalid snippet IDs')
+    }
+
+    // Delete in batches for free-tier efficiency
+    const BATCH_SIZE = 10
+    let deletedCount = 0
+
+    for (let i = 0; i < validIds.length; i += BATCH_SIZE) {
+      const batch = validIds.slice(i, i + BATCH_SIZE)
+
+      const { error } = await supabase
+        .from('snippets')
+        .delete()
+        .in('id', batch)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+      deletedCount += batch.length
+    }
+
     revalidatePath('/library')
-    return { success: true }
-  } catch {
-    return { error: 'Failed to delete snippets' }
+    revalidatePath('/')
+
+    return createSuccessResult(
+      { deletedCount },
+      `Deleted ${deletedCount} snippet${deletedCount === 1 ? '' : 's'}`
+    )
+  } catch (error) {
+    console.error('[BULK_DELETE_SNIPPETS_ERROR]', error)
+    return createErrorResult(ERROR_MESSAGES.GENERAL.SERVER_ERROR)
   }
 }

@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import sql from '@/db/client'
 import { SettingsForm } from '@/features/settings/components/settings-form'
 import { MFAForm } from '@/features/settings/components/mfa-form'
 import { Metadata } from 'next'
@@ -19,12 +18,16 @@ export default async function SettingsPage() {
     redirect('/login')
   }
 
-  const dbUser = await sql`SELECT name, image FROM users WHERE id = ${user.id}`
-  const initialName = dbUser[0]?.name || ''
-  const initialImage = dbUser[0]?.image || ''
-  const initialBio = dbUser[0]?.bio || ''
+  // Get user profile data
+  const { data: dbUser } = await supabase
+    .from('users')
+    .select('name, image, bio')
+    .eq('id', user.id)
+    .single()
+
+  // Get MFA status
   const { data: factors } = await supabase.auth.mfa.listFactors()
-  const isMFAEnabled = factors?.totp.some((f) => f.status === 'verified') ?? false
+  const isMFAEnabled = factors?.totp?.some((f) => f.status === 'verified') ?? false
 
   return (
     <main className="min-h-screen bg-background">
@@ -42,10 +45,10 @@ export default async function SettingsPage() {
               Profile
             </h2>
             <SettingsForm
-              initialName={initialName}
-              initialBio={initialBio}
+              initialName={dbUser?.name || ''}
+              initialBio={dbUser?.bio || ''}
               email={user.email || ''}
-              initialImage={initialImage}
+              initialImage={dbUser?.image || ''}
             />
           </div>
 

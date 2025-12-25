@@ -17,8 +17,7 @@ export default function LoginForm() {
   const successMessage = searchParams.get('success')
 
   return (
-    <div className="w-full h-screen lg:grid lg:grid-cols-2">
-      {/* LEFT SIDE */}
+    <div className="w-full min-h-dvh lg:grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-10 border-r border-border dark:bg-white dark:text-black bg-black text-white">
         <Link
           href="/"
@@ -31,7 +30,6 @@ export default function LoginForm() {
         </Link>
 
         <div className="space-y-4 opacity-40 select-none pointer-events-none">
-          {/* Abstract Code UI Pattern */}
           <div className="h-2 w-24 bg-white/20 rounded mb-4 dark:bg-neutral-300" />
           <div className="pl-4 space-y-2">
             <div className="h-2 w-32 bg-white/20 rounded dark:bg-neutral-300" />
@@ -50,10 +48,18 @@ export default function LoginForm() {
         </blockquote>
       </div>
 
-      {/* RIGHT SIDE */}
-      <div className="flex items-center justify-center py-12 px-8 bg-background text-foreground">
-        <div className="mx-auto grid w-full max-w-[350px] gap-8">
-          <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-center py-12 px-4 sm:px-8 bg-background text-foreground">
+        <div className="mx-auto w-full max-w-[350px] space-y-6">
+          <div className="flex lg:hidden flex-col items-center gap-2 mb-8">
+            <Link href="/" className="flex items-center gap-2 font-medium">
+              <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground">
+                <Code2 className="h-4 w-4" />
+              </div>
+              <span className="text-lg font-bold tracking-tight">CodeStash</span>
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-2 text-center lg:text-left">
             <h1 className="text-2xl font-semibold tracking-tight">Sign in to your Stash</h1>
             <p className="text-muted-foreground text-sm">
               Enter your details below to access your snippets.
@@ -72,12 +78,19 @@ export default function LoginForm() {
 
           {/* SOCIAL LOGIN BUTTONS */}
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className="w-full" onClick={() => loginWithSocial('github')}>
+            <Button
+              variant="outline"
+              className="w-full h-10"
+              onClick={() => loginWithSocial('github')}
+            >
               <Github className="mr-2 h-4 w-4" />
               GitHub
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => loginWithSocial('google')}>
-              {/* Simple Google SVG Icon */}
+            <Button
+              variant="outline"
+              className="w-full h-10"
+              onClick={() => loginWithSocial('google')}
+            >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -118,7 +131,7 @@ export default function LoginForm() {
                 id="email"
                 name="email"
                 type="text"
-                placeholder="codestash_dev / code@stash.dev"
+                placeholder="codestash_dev"
                 required
                 className="h-10 placeholder:text-muted-foreground"
               />
@@ -133,6 +146,7 @@ export default function LoginForm() {
               <PasswordInput
                 id="password"
                 name="password"
+                placeholder="••••••••"
                 required
                 minLength={6}
                 className="h-10 placeholder:text-muted-foreground"

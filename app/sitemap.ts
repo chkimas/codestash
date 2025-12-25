@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import sql from '@/db/client'
+import { createClient } from '@/lib/supabase/server'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://codestash-three.vercel.app/'
@@ -11,15 +11,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1
   }))
 
-  const snippets = await sql`
-    SELECT id, updated_at 
-    FROM snippets 
-    WHERE is_public = true 
-    ORDER BY created_at DESC 
-    LIMIT 5000
-  `
+  const supabase = await createClient()
 
-  const snippetUrls = snippets.map((snippet) => ({
+  const { data: snippets, error } = await supabase
+    .from('snippets')
+    .select('id, updated_at')
+    .eq('is_public', true)
+    .order('created_at', { ascending: false })
+    .limit(5000)
+
+  if (error) {
+    console.error('Sitemap error:', error)
+    return routes
+  }
+
+  const snippetUrls = (snippets || []).map((snippet) => ({
     url: `${baseUrl}/library/${snippet.id}`,
     lastModified: new Date(snippet.updated_at),
     changeFrequency: 'weekly' as const,

@@ -16,6 +16,7 @@ export interface Snippet {
   updated_at: string
   created_at: string
   author_name?: string
+  author_username?: string
   author_image?: string
   is_favorited?: boolean
   favorite_count?: number
@@ -25,7 +26,7 @@ export type User = {
   id: string
   name: string
   email: string
-  password: string
+  role: 'user' | 'admin'
 }
 
 export const CreateSnippetSchema = z.object({
@@ -45,7 +46,10 @@ export const RegisterSchema = z
       .regex(/^[a-zA-Z0-9_]+$/, { message: 'Only letters, numbers, and underscores allowed' }),
     email: z.string().email({ message: 'Please enter a valid email.' }),
     password: z.string().min(6, { message: 'Be at least 6 characters long.' }),
-    confirmPassword: z.string().min(6, { message: 'Must be at least 6 characters.' })
+    confirmPassword: z.string().min(6, { message: 'Must be at least 6 characters.' }),
+    terms: z.boolean().refine((val) => val === true, {
+      message: 'You must accept the terms and conditions'
+    })
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -69,3 +73,39 @@ export const ProfileSchema = z.object({
     .optional()
     .nullable()
 })
+
+// Base success type (NO legacy properties here)
+export type SuccessResult<T = undefined> = {
+  success: true
+  data?: T
+  message?: string
+}
+
+// Base error type
+export type ErrorResult = {
+  success: false
+  message: string
+  errors?: Record<string, string[]>
+}
+
+// Legacy success type WITH backward compatibility
+export type LegacySuccessResult<T = undefined> = SuccessResult<T> & {
+  // Legacy properties for transition
+  error?: never // Never present on success
+  available?: boolean // Only for username check
+  // Add other legacy properties as needed
+}
+
+// Legacy error type WITH backward compatibility
+export type LegacyErrorResult = ErrorResult & {
+  // Legacy properties for transition
+  error: string // Always present on error for backward compatibility
+  available?: boolean // Optional for username check
+}
+
+// Union type for legacy-compatible results
+export type LegacyActionResult<T = undefined> = LegacySuccessResult<T> | LegacyErrorResult
+
+// Specific typed results
+export type UsernameAvailabilityResult = LegacyActionResult<{ available: boolean }>
+export type PasswordUpdateResult = LegacyActionResult

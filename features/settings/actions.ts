@@ -5,8 +5,6 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { ProfileSchema } from '@/lib/definitions'
 import { checkCooldown } from '@/lib/utils'
-import sql from '@/db/client'
-import { createAdminClient } from '@/lib/supabase/admin'
 import QRCode from 'qrcode'
 
 export type SettingsState =
@@ -49,14 +47,24 @@ export async function updateProfile(
   let nameUpdated = false
   let bioUpdated = false
 
+  // Handle avatar upload
   if (avatar && avatar.size > 0) {
     if (avatar.size > 2 * 1024 * 1024) {
       errors.push('Image too large (Max 2MB)')
     } else {
       try {
-        const dbResult = await sql`SELECT image FROM users WHERE id = ${user.id}`
-        const oldUrl: string | undefined = dbResult[0]?.image
+        // Get current avatar
+        const { data: currentUser, error: fetchError } = await supabase
+          .from('users')
+          .select('image')
+          .eq('id', user.id)
+          .single()
 
+        if (fetchError) throw fetchError
+
+        const oldUrl = currentUser?.image
+
+        // Delete old avatar if exists
         if (oldUrl && oldUrl.includes('avatars/')) {
           const oldPath = oldUrl.split('/avatars/').pop()
           if (oldPath) {
@@ -64,6 +72,7 @@ export async function updateProfile(
           }
         }
 
+        // Upload new avatar
         const filePath = `${user.id}/${Date.now()}-${avatar.name}`
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -71,10 +80,18 @@ export async function updateProfile(
 
         if (uploadError) throw uploadError
 
-        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
-        newAvatarUrl = data.publicUrl
+        // Get public URL
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath)
+        newAvatarUrl = urlData.publicUrl
 
-        await sql`UPDATE users SET image = ${newAvatarUrl} WHERE id = ${user.id}`
+        // Update user record
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ image: newAvatarUrl })
+          .eq('id', user.id)
+
+        if (updateError) throw updateError
+
         successes.push('Avatar updated')
       } catch (e) {
         console.error('Avatar Update Error:', e)
@@ -83,10 +100,17 @@ export async function updateProfile(
     }
   }
 
+  // Handle bio update
   if (bio !== null) {
     try {
-      const truncatedBio = bio.slice(0, 160) // Enforce limit server-side
-      await sql`UPDATE users SET bio = ${truncatedBio} WHERE id = ${user.id}`
+      const truncatedBio = bio.slice(0, 160)
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ bio: truncatedBio })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
       bioUpdated = true
     } catch (e) {
       console.error('Bio Update Error:', e)
@@ -94,19 +118,32 @@ export async function updateProfile(
     }
   }
 
+  // Handle name update
   if (name) {
     try {
-      const dbUser = await sql`SELECT last_name_change FROM users WHERE id = ${user.id}`
-      const lastChange = dbUser[0]?.last_name_change
+      // Get last name change date
+      const { data: dbUser, error: fetchError } = await supabase
+        .from('users')
+        .select('last_name_change')
+        .eq('id', user.id)
+        .single()
 
+      if (fetchError) throw fetchError
+
+      const lastChange = dbUser?.last_name_change
+
+      // Check cooldown
       if (!checkCooldown(lastChange)) {
         errors.push('Name blocked (30-day cooldown)')
       } else {
-        await sql`
-          UPDATE users 
-          SET name = ${name}, last_name_change = NOW() 
-          WHERE id = ${user.id}
-        `
+        // Update name
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ name: name, last_name_change: new Date().toISOString() })
+          .eq('id', user.id)
+
+        if (updateError) throw updateError
+
         nameUpdated = true
         successes.push('Name updated')
       }
@@ -116,6 +153,7 @@ export async function updateProfile(
     }
   }
 
+  // Update auth metadata if name or avatar changed
   if (nameUpdated || newAvatarUrl) {
     const updateData: { full_name?: string; avatar_url?: string } = {}
 
@@ -125,10 +163,12 @@ export async function updateProfile(
     await supabase.auth.updateUser({ data: updateData })
   }
 
+  // Revalidate if any updates
   if (nameUpdated || newAvatarUrl || bioUpdated) {
     revalidatePath('/', 'layout')
   }
 
+  // Return appropriate response
   if (errors.length > 0 && successes.length > 0) {
     return {
       error: `${successes.join(', but ')}. ${errors.join(', ')}.`,
@@ -168,6 +208,7 @@ export async function updateEmail(
   }
 
   try {
+    // Verify current password
     const { error: verifyError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: currentPassword
@@ -177,19 +218,31 @@ export async function updateEmail(
       return { error: 'Incorrect current password.' }
     }
 
-    const dbUser = await sql`SELECT last_email_change FROM users WHERE id = ${user.id}`
-    const lastChange: Date | string | null | undefined = dbUser[0]?.last_email_change
+    // Check cooldown
+    const { data: dbUser, error: fetchError } = await supabase
+      .from('users')
+      .select('last_email_change')
+      .eq('id', user.id)
+      .single()
 
-    if (!checkCooldown(lastChange)) {
+    if (fetchError) throw fetchError
+
+    if (!checkCooldown(dbUser?.last_email_change)) {
       return { error: 'Email can only be changed once every 30 days.' }
     }
 
+    // Update email
     const { error: updateError } = await supabase.auth.updateUser({ email })
     if (updateError) {
       return { error: updateError.message }
     }
 
-    await sql`UPDATE users SET last_email_change = NOW() WHERE id = ${user.id}`
+    // Update last change timestamp
+    await supabase
+      .from('users')
+      .update({ last_email_change: new Date().toISOString() })
+      .eq('id', user.id)
+
     return { success: true, message: 'Confirmation links sent to both emails.' }
   } catch (error) {
     console.error('[UPDATE_EMAIL_ERROR]', { userId: user.id, error })
@@ -222,6 +275,7 @@ export async function updatePassword(
   }
 
   try {
+    // Verify current password
     const { error: verifyError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: currentPassword
@@ -231,19 +285,31 @@ export async function updatePassword(
       return { error: 'Incorrect current password.' }
     }
 
-    const dbUser = await sql`SELECT last_password_change FROM users WHERE id = ${user.id}`
-    const lastChange: Date | string | null | undefined = dbUser[0]?.last_password_change
+    // Check cooldown
+    const { data: dbUser, error: fetchError } = await supabase
+      .from('users')
+      .select('last_password_change')
+      .eq('id', user.id)
+      .single()
 
-    if (!checkCooldown(lastChange)) {
+    if (fetchError) throw fetchError
+
+    if (!checkCooldown(dbUser?.last_password_change)) {
       return { error: 'Password can only be changed once every 30 days.' }
     }
 
+    // Update password
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
     if (updateError) {
       return { error: updateError.message }
     }
 
-    await sql`UPDATE users SET last_password_change = NOW() WHERE id = ${user.id}`
+    // Update last change timestamp
+    await supabase
+      .from('users')
+      .update({ last_password_change: new Date().toISOString() })
+      .eq('id', user.id)
+
     return { success: true, message: 'Password updated successfully.' }
   } catch (error) {
     console.error('[UPDATE_PASSWORD_ERROR]', { userId: user.id, error })
@@ -268,13 +334,28 @@ export async function deleteAccount(
   }
 
   try {
-    const supabaseAdmin = createAdminClient()
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id)
-
-    if (error) {
-      throw error
+    // Use Supabase admin API for account deletion
+    // Note: This requires SUPABASE_SERVICE_ROLE_KEY
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Service role key not configured')
     }
 
+    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+    const adminClient = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    const { error } = await adminClient.auth.admin.deleteUser(user.id)
+    if (error) throw error
+
+    // Sign out current session
     await supabase.auth.signOut()
   } catch (error) {
     console.error('Delete Account Error:', error)
@@ -284,7 +365,7 @@ export async function deleteAccount(
   redirect('/login')
 }
 
-// MFA
+// MFA Functions
 export async function startMFAEnrollment() {
   const supabase = await createClient()
   const {
@@ -295,7 +376,7 @@ export async function startMFAEnrollment() {
   try {
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      friendlyName: user.email || 'My App'
+      friendlyName: user.email || 'CodeStash'
     })
 
     if (error) throw error
@@ -340,7 +421,7 @@ export async function disableMFA() {
   if (!user) return { error: 'Unauthorized' }
 
   const { data: factors } = await supabase.auth.mfa.listFactors()
-  const totpFactor = factors?.totp.find((f) => f.status === 'verified')
+  const totpFactor = factors?.totp?.find((f) => f.status === 'verified')
 
   if (!totpFactor) return { error: 'No active MFA found.' }
 

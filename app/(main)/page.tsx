@@ -1,13 +1,36 @@
-import sql from '@/db/client'
-import { Snippet } from '@/lib/definitions'
+import { Snippet, LanguageValue } from '@/lib/definitions'
 import Search from '@/features/snippets/components/search'
 import { SnippetCard } from '@/features/snippets/components/snippet-card'
-import { SearchX, Sparkles } from 'lucide-react'
+import {
+  Search as SearchIcon,
+  TrendingUp,
+  Code2,
+  Globe,
+  Database,
+  Layers,
+  Terminal,
+  GitBranch,
+  Cpu,
+  Sparkles
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { trackSearch, getTrendingSearches } from '@/lib/analytics'
+
+interface SnippetRow {
+  id: string
+  user_id: string
+  title: string
+  code: string
+  language: string
+  description: string | null
+  is_public: boolean
+  updated_at: string
+  created_at: string
+  users: { name: string; image: string | null; username: string | null } | null
+  favorites: { user_id: string }[]
+}
 
 type Props = {
   searchParams?: Promise<{
@@ -17,9 +40,42 @@ type Props = {
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'CodeStash | The Open Registry'
+    absolute: 'CodeStash | The Open Registry for Developers'
   }
 }
+
+const FEATURE_ITEMS = [
+  {
+    icon: Database,
+    title: 'Centralized Library',
+    description: 'Stop losing code in Slack. Stash it once, find it forever.'
+  },
+  {
+    icon: Globe,
+    title: 'Public by Default',
+    description: 'Share your solutions via a simple URL. No login required.'
+  },
+  {
+    icon: Layers,
+    title: 'Syntax Highlighting',
+    description: 'Beautiful rendering for TypeScript, Rust, Go, and 50+ others.'
+  },
+  {
+    icon: GitBranch,
+    title: 'Version Control',
+    description: 'Track changes and fork snippets from the community.'
+  },
+  {
+    icon: Terminal,
+    title: 'Developer First',
+    description: 'Built for efficiency. No ads, no paywalls, just code.'
+  },
+  {
+    icon: Cpu,
+    title: 'Lightweight',
+    description: 'Zero bloat. Pages load instantly.'
+  }
+]
 
 export default async function Home(props: Props) {
   const searchParams = await props.searchParams
@@ -30,7 +86,8 @@ export default async function Home(props: Props) {
   }
 
   const dbTrending = await getTrendingSearches()
-  const trendingTags = dbTrending.length > 0 ? dbTrending : ['typescript', 'nextjs', 'supabase']
+  const trendingTags =
+    dbTrending.length > 0 ? dbTrending : ['typescript', 'react', 'nextjs', 'rust']
 
   const supabase = await createClient()
   const {
@@ -38,181 +95,280 @@ export default async function Home(props: Props) {
   } = await supabase.auth.getUser()
   const userId = user?.id ?? null
 
+  // 1. Check if user has created ANY snippets (to conditionally hide CTA)
+  let hasCreatedSnippets = false
+  if (userId) {
+    const { count } = await supabase
+      .from('snippets')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    hasCreatedSnippets = (count || 0) > 0
+  }
+
   let snippets: Snippet[] = []
 
   try {
-    const searchQuery = query ? `%${query}%` : null
+    let queryBuilder = supabase
+      .from('snippets')
+      .select(
+        `
+        *,
+        users!user_id (name, image, username),
+        favorites!left (user_id)
+      `
+      )
+      .eq('is_public', true)
+      .limit(24)
 
-    if (searchQuery) {
-      snippets = await sql`
-        SELECT 
-          s.*, 
-          u.name as author_name,
-          u.image as author_image,
-          EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
-          (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
-        FROM snippets s
-        LEFT JOIN users u ON s.user_id = u.id
-        WHERE s.is_public = true 
-        AND (
-          s.title ILIKE ${searchQuery} OR 
-          s.language ILIKE ${searchQuery} OR
-          s.description ILIKE ${searchQuery}
-        )
-        ORDER BY s.created_at DESC
-        LIMIT 24
-      `
+    if (query) {
+      queryBuilder = queryBuilder
+        .or(`title.ilike.%${query}%,language.ilike.%${query}%,description.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
     } else {
-      snippets = await sql`
-        SELECT 
-          s.*, 
-          u.name as author_name,
-          u.image as author_image,
-          EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${userId}) as is_favorited,
-          (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
-        FROM snippets s
-        LEFT JOIN users u ON s.user_id = u.id
-        WHERE s.is_public = true 
-        ORDER BY s.created_at DESC
-        LIMIT 24
-      `
+      queryBuilder = queryBuilder.order('created_at', { ascending: false })
+    }
+
+    const { data, error } = await queryBuilder.returns<SnippetRow[]>()
+
+    if (error) {
+      console.error('Database Error:', error.message)
+    }
+
+    if (data) {
+      snippets = data.map((item) => ({
+        id: item.id,
+        user_id: item.user_id,
+        title: item.title,
+        code: item.code,
+        language: item.language as LanguageValue,
+        description: item.description,
+        is_public: item.is_public,
+        updated_at: item.updated_at,
+        created_at: item.created_at,
+        author_name: item.users?.name || 'Anonymous',
+        author_image: item.users?.image || undefined,
+        author_username: item.users?.username || undefined,
+        is_favorited: item.favorites?.some((f) => f.user_id === userId) || false,
+        favorite_count: item.favorites?.length || 0
+      }))
     }
   } catch (error) {
-    console.error('Database Error:', error)
+    console.error('Server Error:', error)
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <section className="relative border-b border-border bg-muted/30 py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px]"></div>
+    <main className="min-h-screen bg-background text-foreground relative selection:bg-primary/20 isolate">
+      {/* 1. TECHNICAL GRID BACKGROUND */}
+      <div className="fixed inset-0 -z-10 h-full w-full bg-background pointer-events-none">
+        <svg
+          className="absolute inset-0 h-full w-full stroke-black/10 dark:stroke-white/10"
+          style={{
+            maskImage: 'radial-gradient(100% 100% at top center, white, transparent)',
+            WebkitMaskImage: 'radial-gradient(100% 100% at top center, white, transparent)'
+          }}
+          aria-hidden="true"
+        >
+          <defs>
+            <pattern
+              id="home-grid-pattern"
+              width="40"
+              height="40"
+              x="50%"
+              y="-1"
+              patternUnits="userSpaceOnUse"
+            >
+              <path d="M.5 40V.5H40" fill="none" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" strokeWidth="0" fill="url(#home-grid-pattern)" />
+        </svg>
 
-        <div className="container relative mx-auto px-6 max-w-5xl text-center z-10">
-          <Badge
-            variant="outline"
-            className="mb-6 bg-card shadow-sm text-muted-foreground border-border py-1.5 px-3"
-          >
-            <Sparkles className="w-3 h-3 mr-2 text-amber-500" />
-            v1.0 Now Available
-          </Badge>
+        {/* Top Spotlight Glow */}
+        <div className="absolute left-0 right-0 top-0 m-auto h-[500px] w-[500px] rounded-full bg-primary/20 opacity-20 blur-[100px] pointer-events-none" />
+      </div>
 
-          <h1 className="text-4xl md:text-6xl font-semibold tracking-tighter text-foreground mb-6">
-            Build faster with{' '}
-            <span className="relative font-bold inline-flex text-4xl md:text-7xl">
-              {['C', 'o', 'd', 'e', 'S', 't', 'a', 's', 'h', '.'].map((letter, i) => (
-                <span
-                  key={i}
-                  className="inline-block animate-bounce"
-                  style={{
-                    animationDelay: `${i * 0.1}s`,
-                    animationDuration: '2.5s',
-                    animationIterationCount: 'infinite',
-                    animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
-                  }}
-                >
-                  <span className="bg-gradient-to-b from-white via-gray-400 to-black bg-clip-text text-transparent">
-                    {letter}
-                  </span>
-                </span>
-              ))}
-
-              {/* Motion trail effect */}
-              <span className="absolute inset-0 overflow-hidden pointer-events-none">
-                {[...Array(3)].map((_, i) => (
-                  <span
-                    key={i}
-                    className="absolute top-0 h-full w-0.5 bg-gradient-to-b from-transparent via-white-400/30 to-transparent animate-scanline"
-                    style={{
-                      left: `${30 + i * 20}%`,
-                      animationDelay: `${i * 0.2}s`
-                    }}
-                  />
-                ))}
+      <section className="relative pb-12 md:pb-20 overflow-hidden">
+        <div className="pt-6 md:pt-12" />
+        <div className="container relative mx-auto px-4 sm:px-6 max-w-5xl z-10 text-center">
+          <div className="flex justify-center mb-8 md:mb-10 mt-2 md:mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="px-4 py-2 md:px-5 md:py-2.5 rounded-xl border border-border/60 bg-card/50 backdrop-blur-sm shadow-xs transition-transform hover:scale-105 cursor-default">
+              <span className="block font-mono text-muted-foreground text-xs md:text-sm lg:text-base">
+                <span className="text-purple-500 dark:text-purple-400">import</span>{' '}
+                <span className="text-foreground/60">{'{'}</span>{' '}
+                <span className="text-foreground font-semibold">CodeStash</span>{' '}
+                <span className="text-foreground/60">{'}'}</span>{' '}
+                <span className="text-purple-500 dark:text-purple-400">from</span>{' '}
+                <span className="text-foreground ">&apos;chkimas&apos;</span>
               </span>
+            </div>
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 md:mb-8 mt-4 leading-tight">
+            <span className="text-foreground">Reusable code, at </span>
+            <span className="bg-linear-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+              zero cost.
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-10">
-            A free, open registry engineered for developers — fast, searchable, and built for
-            seamless knowledge reuse. Zero cost. Public by default.
+          {/* Subtitle */}
+          <p className="text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 md:mb-8 leading-relaxed font-light px-4">
+            A centralized, searchable library for versioned code—designed for fast lookup, reuse,
+            and community sharing.
           </p>
 
-          {/* Elevated Search Container */}
-          <div className="max-w-xl mx-auto transform transition-all hover:scale-[1.01]">
-            <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-muted to-muted/50 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200" />
-              <div className="relative bg-card shadow-lg rounded-lg overflow-hidden border border-border">
-                <Search placeholder="That code (you) KNOW `you` saved…" />
-              </div>
+          {/* Search Bar */}
+          <div className="max-w-2xl mx-auto mb-8 md:mb-10 relative z-20 px-4">
+            <div className="p-1 rounded-2xl bg-linear-to-b shadow-sm backdrop-blur-sm">
+              <Search
+                placeholder="Search registry (e.g. 'auth hook', 'dockerfile')..."
+                redirectUrl="/explore"
+                key={query}
+              />
             </div>
 
-            {/* DYNAMIC TRENDING SECTION */}
+            {/* Quick Links / Trending */}
             {trendingTags.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                <span className="mr-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
-                  Trending
-                </span>
+              <div className="mt-3 md:mt-4 flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs md:text-sm text-muted-foreground font-mono">
+                <div className="flex items-center gap-1.5 opacity-70">
+                  <TrendingUp className="w-3 h-3 text-primary shrink-0" />
+                  <span className="text-xs uppercase tracking-wider">Trending:</span>
+                </div>
 
                 {trendingTags.map((term) => (
                   <Link
                     key={term}
                     href={`/?query=${encodeURIComponent(term)}`}
-                    className="
-                      group relative flex items-center rounded-full border border-border 
-                      bg-card px-3 py-1 text-xs font-medium text-muted-foreground 
-                      transition-all duration-200 ease-out
-                      hover:border-foreground/30 hover:text-foreground 
-                      active:scale-95
-                    "
+                    className="group hover:text-primary transition-colors flex items-center"
                   >
-                    <span className="mr-0.5 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground">
+                    <span className="text-muted-foreground/40 mr-0.5 group-hover:text-primary/50">
                       #
                     </span>
-                    {term}
+                    <span className="underline-offset-4 group-hover:underline truncate max-w-20 md:max-w-none">
+                      {term}
+                    </span>
                   </Link>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Call to Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 px-4">
+            <Link
+              href="/register"
+              className="w-full sm:w-auto h-11 px-4 md:px-6 rounded-lg bg-foreground text-background font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-foreground/5"
+            >
+              <Terminal className="w-4 h-4 shrink-0" />
+              <span className="truncate">Start Stashing</span>
+            </Link>
+            <Link
+              href="/explore"
+              className="w-full sm:w-auto h-11 px-4 md:px-6 rounded-lg border border-border bg-background hover:bg-muted/50 font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Globe className="w-4 h-4 shrink-0" />
+              <span className="truncate">Explore Registry</span>
+            </Link>
+          </div>
         </div>
       </section>
 
-      <section className="container mx-auto px-6 py-16 max-w-[1600px]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-1 bg-foreground rounded-full" />
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
-              {query ? `Results for "${query}"` : 'Recent Community Contributions'}
-            </h2>
-          </div>
+      <section className="container mx-auto px-4 py-12 border-t border-dashed border-border/40 bg-muted/5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {FEATURE_ITEMS.map((feature, index) => (
+            <div
+              key={index}
+              className="group p-6 rounded-xl border border-border/40 bg-card/40 hover:bg-card hover:border-primary/20 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:scale-105 transition-transform">
+                  <feature.icon className="w-4 h-4" />
+                </div>
+                <h3 className="font-semibold text-base">{feature.title}</h3>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">
-              Showing {snippets.length} resources
-            </span>
+      <section className="container mx-auto px-4 py-16 max-w-[1600px]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Code2 className="w-5 h-5 text-primary" />
+              {query ? `Results for "${query}"` : 'Fresh from the Community'}
+            </h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {query
+                ? `Found ${snippets.length} matching snippets`
+                : 'Discover what developers are building and sharing today.'}
+            </p>
           </div>
         </div>
 
-        {/* Content Grid */}
         {snippets.length > 0 ? (
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {snippets.map((snippet) => (
               <SnippetCard key={snippet.id} snippet={snippet} currentUserId={userId} />
             ))}
           </div>
         ) : (
-          /* Empty State - Minimalist */
-          <div className="flex flex-col items-center justify-center py-32 border border-dashed border-border rounded-xl bg-muted/20">
-            <div className="bg-card p-4 rounded-full shadow-sm mb-4 border border-border">
-              <SearchX className="h-6 w-6 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-16 border border-dashed border-border/50 rounded-2xl bg-muted/5">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+              <SearchIcon className="h-8 w-8 text-muted-foreground/50" />
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-1">No results found</h3>
-            <p className="text-muted-foreground text-sm max-w-xs text-center">
-              We couldn&apos;t find anything matching &quot;{query}&quot;. Try adjusting your
-              keywords.
+            <h3 className="text-lg font-medium text-foreground">No snippets found</h3>
+            <p className="text-muted-foreground max-w-md text-center mt-2 text-sm">
+              We couldn&apos;t find anything for &quot;{query}&quot;. Try a different keyword or
+              browse the registry.
             </p>
+            <div className="mt-6">
+              <Link href="/" className="text-primary hover:underline text-sm font-medium">
+                Clear Search
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {!query && snippets.length >= 24 && (
+          <div className="mt-12 text-center">
+            <Link
+              href="/explore"
+              className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors border border-border/50 rounded-full px-6 py-2 hover:bg-muted"
+            >
+              View all snippets
+              <span className="text-xs">→</span>
+            </Link>
           </div>
         )}
       </section>
+
+      {!hasCreatedSnippets && (
+        <section className="border-t border-border/40 py-20 relative overflow-hidden">
+          <div className="absolute inset-0 bg-linear-to-b from-transparent to-muted/30 -z-10" />
+
+          <div className="container mx-auto px-4 text-center max-w-2xl">
+            <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-6 animate-pulse">
+              <Sparkles className="w-6 h-6 text-primary" />
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight mb-4">Join the Open Registry</h2>
+            <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+              Contribute reusable snippets, discover community-maintained utilities, and help create
+              a shared library of production-ready code.
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <Link
+                href="/register"
+                className="h-11 px-6 rounded-lg bg-foreground text-background font-medium hover:opacity-90 transition-opacity flex items-center justify-center shadow-xl shadow-primary/10"
+              >
+                Always free. Get started
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   )
 }

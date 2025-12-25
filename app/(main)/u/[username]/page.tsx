@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation'
-import sql from '@/db/client'
-import { Snippet } from '@/lib/definitions'
+import { Snippet, LanguageValue } from '@/lib/definitions'
 import { SnippetCard } from '@/features/snippets/components/snippet-card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/server'
@@ -19,11 +18,27 @@ import {
 } from 'lucide-react'
 import { differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
 import { Metadata } from 'next'
+import { cn } from '@/lib/utils'
 
 interface ProfilePageProps {
   params: Promise<{
     username: string
   }>
+}
+
+// Strict DB Row Type
+interface SnippetRow {
+  id: string
+  user_id: string
+  title: string
+  code: string
+  language: string
+  description: string | null
+  is_public: boolean
+  updated_at: string
+  created_at: string
+  users: { name: string; image: string | null; username: string | null } | null
+  favorites: { user_id: string }[]
 }
 
 function getMemberDuration(date: Date) {
@@ -37,13 +52,16 @@ function getMemberDuration(date: Date) {
   return `${days} ${days === 1 ? 'day' : 'days'}`
 }
 
-export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
-  const { username } = await params
-  const decodedUsername = decodeURIComponent(username)
+export async function generateMetadata(props: ProfilePageProps): Promise<Metadata> {
+  const params = await props.params
+  const decodedUsername = decodeURIComponent(params.username)
 
-  const [user] = await sql`
-    SELECT name FROM users WHERE username = ${decodedUsername}
-  `
+  const supabase = await createClient()
+  const { data: user } = await supabase
+    .from('users')
+    .select('name')
+    .eq('username', decodedUsername)
+    .single()
 
   return {
     title: user?.name || 'Profile'
@@ -60,30 +78,53 @@ export default async function ProfilePage(props: ProfilePageProps) {
   } = await supabase.auth.getUser()
   const currentUserId = currentUser?.id ?? null
 
-  const [profile] = await sql`
-    SELECT id, name, image, bio, created_at, username
-    FROM users
-    WHERE username = ${username}
-  `
+  // 1. Get Profile
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('id, name, image, bio, created_at, username')
+    .eq('username', username)
+    .single()
 
-  if (!profile) {
+  if (profileError || !profile) {
     notFound()
   }
 
-  const snippets: Snippet[] = await sql`
-    SELECT
-      s.*,
-      u.name as author_name,
-      u.image as author_image,
-      u.username as author_username,
-      EXISTS(SELECT 1 FROM favorites f WHERE f.snippet_id = s.id AND f.user_id = ${currentUserId}) as is_favorited,
-      (SELECT COUNT(*) FROM favorites f WHERE f.snippet_id = s.id) as favorite_count
-    FROM snippets s
-    JOIN users u ON s.user_id = u.id
-    WHERE s.user_id = ${profile.id}
-    AND s.is_public = true
-    ORDER BY s.created_at DESC
-  `
+  // 2. Get User's Public Snippets
+  const { data: snippetData, error: snippetError } = await supabase
+    .from('snippets')
+    .select(
+      `
+      *,
+      users!user_id (name, image, username),
+      favorites!left (user_id)
+    `
+    )
+    .eq('user_id', profile.id)
+    .eq('is_public', true)
+    .order('created_at', { ascending: false })
+    .returns<SnippetRow[]>()
+
+  if (snippetError) {
+    console.error('Profile Snippets Error:', snippetError)
+  }
+
+  // 3. Transform Data
+  const snippets: Snippet[] = (snippetData || []).map((item) => ({
+    id: item.id,
+    user_id: item.user_id,
+    title: item.title,
+    code: item.code,
+    language: item.language as LanguageValue,
+    description: item.description,
+    is_public: item.is_public,
+    updated_at: item.updated_at,
+    created_at: item.created_at,
+    author_name: item.users?.name || 'Anonymous',
+    author_image: item.users?.image || undefined,
+    author_username: item.users?.username || '',
+    is_favorited: item.favorites?.some((f) => f.user_id === currentUserId) || false,
+    favorite_count: item.favorites?.length || 0
+  }))
 
   const totalFavorites = snippets.reduce((acc, snippet) => acc + (snippet.favorite_count || 0), 0)
   const memberSince = new Date(profile.created_at)
@@ -202,16 +243,17 @@ export default async function ProfilePage(props: ProfilePageProps) {
                   </div>
 
                   <div className="relative max-w-2xl mx-auto md:mx-0">
-                    {profile.bio ? (
-                      <p className="text-lg text-foreground/80 leading-relaxed font-light">
-                        {profile.bio}
+                    <div
+                      className={cn(
+                        'flex items-start justify-center md:justify-start gap-2 italic font-light',
+                        profile.bio ? 'text-muted-foreground' : 'text-muted-foreground/60'
+                      )}
+                    >
+                      <Quote className="h-4 w-4 rotate-180 shrink-0 mt-1 opacity-50" />
+                      <p className="text-lg leading-relaxed">
+                        {profile.bio || 'Sharing knowledge through elegant code solutions'}
                       </p>
-                    ) : (
-                      <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground/60 italic">
-                        <Quote className="h-4 w-4 rotate-180" />
-                        <span>Sharing knowledge through elegant code solutions</span>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
 

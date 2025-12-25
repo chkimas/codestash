@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Snippet } from '@/lib/definitions'
 import { SnippetCard } from './snippet-card'
 import { LibraryToolbar } from './library-toolbar'
-import { CheckCircle2, Circle } from 'lucide-react'
+import { CheckCircle2, Circle, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { deleteSnippets } from '../actions'
 import { toast } from 'sonner'
@@ -15,11 +15,19 @@ import { Plus, SearchX, Code2 } from 'lucide-react'
 
 interface SnippetGridProps {
   initialSnippets: Snippet[]
+  favoritedSnippets?: Snippet[]
   currentUserId: string
   query?: string
+  hideToolbar?: boolean
 }
 
-export function SnippetGrid({ initialSnippets, currentUserId, query }: SnippetGridProps) {
+export function SnippetGrid({
+  initialSnippets,
+  favoritedSnippets = [],
+  currentUserId,
+  query,
+  hideToolbar = false
+}: SnippetGridProps) {
   const router = useRouter()
   const [isSelectMode, setIsSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -40,31 +48,39 @@ export function SnippetGrid({ initialSnippets, currentUserId, query }: SnippetGr
 
     setIsDeleting(true)
     const idsToDelete = Array.from(selectedIds)
-
     const result = await deleteSnippets(idsToDelete)
 
     setIsDeleting(false)
 
-    if (result.error) {
-      toast.error(result.error)
+    if (!result.success) {
+      toast.error(result.message || result.error || 'Failed to delete snippets')
     } else {
-      toast.success(`Deleted ${idsToDelete.length} snippets`)
+      toast.success(
+        result.message || `Deleted ${result.data?.deletedCount || idsToDelete.length} snippets`
+      )
       setSelectedIds(new Set())
       setIsSelectMode(false)
       router.refresh()
     }
   }
 
-  if (initialSnippets.length === 0) {
+  const hasAnySnippets = initialSnippets.length > 0 || favoritedSnippets.length > 0
+
+  if (!hasAnySnippets) {
     return (
       <div className="flex flex-col min-h-screen">
-         <LibraryToolbar
-            onToggleSelect={() => setIsSelectMode(!isSelectMode)}
+        {!hideToolbar && (
+          <LibraryToolbar
+            onToggleSelect={() => {
+              setIsSelectMode(!isSelectMode)
+              setSelectedIds(new Set())
+            }}
             isSelectMode={isSelectMode}
             selectedCount={selectedIds.size}
             onDelete={handleBatchDelete}
             isDeleting={isDeleting}
           />
+        )}
         <div className="container mx-auto px-6 py-8">
           <div className="flex flex-col items-center justify-center min-h-[50vh] border-2 border-dashed border-border rounded-2xl bg-muted/20">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-card shadow-sm border border-border mb-6">
@@ -83,11 +99,20 @@ export function SnippetGrid({ initialSnippets, currentUserId, query }: SnippetGr
                 : 'Your personal knowledge base starts here.'}
             </p>
             {!query ? (
-              <Button asChild size="lg" className="bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-                <Link href="/library/create"><Plus className="h-4 w-4 mr-2" />Create First Snippet</Link>
+              <Button
+                asChild
+                size="lg"
+                className="bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+              >
+                <Link href="/library/create">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Snippet
+                </Link>
               </Button>
             ) : (
-              <Button variant="outline" asChild><Link href="/library">Clear Search</Link></Button>
+              <Button variant="outline" asChild>
+                <Link href="/library">Clear Search</Link>
+              </Button>
             )}
           </div>
         </div>
@@ -97,45 +122,80 @@ export function SnippetGrid({ initialSnippets, currentUserId, query }: SnippetGr
 
   return (
     <div className="flex flex-col min-h-screen">
-      <LibraryToolbar
-        onToggleSelect={() => {
-          setIsSelectMode(!isSelectMode)
-          setSelectedIds(new Set())
-        }}
-        isSelectMode={isSelectMode}
-        selectedCount={selectedIds.size}
-        onDelete={handleBatchDelete}
-        isDeleting={isDeleting}
-      />
+      {!hideToolbar && (
+        <LibraryToolbar
+          onToggleSelect={() => {
+            setIsSelectMode(!isSelectMode)
+            setSelectedIds(new Set())
+          }}
+          isSelectMode={isSelectMode}
+          selectedCount={selectedIds.size}
+          onDelete={handleBatchDelete}
+          isDeleting={isDeleting}
+        />
+      )}
 
-      <section className="container mx-auto px-6 py-8 max-w-[1600px] pb-32">
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {initialSnippets.map((snippet) => (
-            <div key={snippet.id} className="relative group">
-              {isSelectMode && (
-                <div
-                  onClick={() => toggleSelection(snippet.id)}
-                  className={cn(
-                    "absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] cursor-pointer rounded-xl border-2 transition-all flex items-center justify-center",
-                    selectedIds.has(snippet.id) ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/10"
+      <section className="container mx-auto px-6 py-8 max-w-[1600px] pb-32 space-y-12">
+        {/* snippets grid */}
+        {initialSnippets.length > 0 && (
+          <div className="space-y-4">
+            {favoritedSnippets.length > 0 && !query && !isSelectMode && (
+              <div className="flex items-center gap-2 text-lg font-semibold text-foreground/90 animate-in fade-in slide-in-from-left-2">
+                <Code2 className="h-5 w-5 text-primary" />
+                <h2>My Snippets</h2>
+              </div>
+            )}
+
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {initialSnippets.map((snippet) => (
+                <div key={snippet.id} className="relative group">
+                  {isSelectMode && (
+                    <div
+                      onClick={() => toggleSelection(snippet.id)}
+                      className={cn(
+                        'absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] cursor-pointer rounded-xl border-2 transition-all flex items-center justify-center',
+                        selectedIds.has(snippet.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-transparent hover:bg-muted/10'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'absolute top-3 right-3 transition-transform',
+                          selectedIds.has(snippet.id) ? 'scale-100' : 'scale-90'
+                        )}
+                      >
+                        {selectedIds.has(snippet.id) ? (
+                          <CheckCircle2 className="h-6 w-6 text-primary fill-primary/20" />
+                        ) : (
+                          <Circle className="h-6 w-6 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
                   )}
-                >
-                  <div className={cn(
-                    "absolute top-3 right-3 transition-transform",
-                    selectedIds.has(snippet.id) ? "scale-100" : "scale-90"
-                  )}>
-                    {selectedIds.has(snippet.id) ? (
-                      <CheckCircle2 className="h-6 w-6 text-primary fill-primary/20" />
-                    ) : (
-                      <Circle className="h-6 w-6 text-muted-foreground" />
-                    )}
-                  </div>
+                  <SnippetCard snippet={snippet} currentUserId={currentUserId} />
                 </div>
-              )}
-              <SnippetCard snippet={snippet} currentUserId={currentUserId} />
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {/* favorites grid */}
+        {favoritedSnippets.length > 0 && !query && !isSelectMode && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-center gap-2 text-lg font-semibold text-foreground/90">
+              <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+              <h2>Favorites</h2>
+            </div>
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {favoritedSnippets.map((snippet) => (
+                <div key={snippet.id} className="relative group">
+                  <SnippetCard snippet={snippet} currentUserId={currentUserId} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   )

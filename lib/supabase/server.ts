@@ -1,4 +1,3 @@
-// lib/supabase/server.ts
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
@@ -20,6 +19,27 @@ export async function createClient() {
             })
           } catch {}
         }
+      }
+    }
+  )
+}
+
+export async function createAdminClient() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for admin operations')
+  }
+
+  console.warn('⚠️ Using admin client - ensure this is for migrations or admin tasks only')
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      cookies: {
+        getAll() {
+          return []
+        },
+        setAll() {}
       }
     }
   )

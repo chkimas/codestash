@@ -12,7 +12,7 @@ import {
   DropdownMenuRadioItem
 } from '@/components/ui/dropdown-menu'
 import { Filter, CheckSquare, X, Trash2 } from 'lucide-react'
-import Search from '@/features/snippets/components/search' // Import your component
+import Search from '@/features/snippets/components/search'
 
 interface LibraryToolbarProps {
   onToggleSelect: () => void
@@ -42,44 +42,55 @@ export function LibraryToolbar({
 
   return (
     <div className="sticky top-14 z-20 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-backdrop-filter:bg-background/60">
-      <div className="container mx-auto px-6 max-w-[1600px] h-14 flex items-center justify-between gap-4">
+      <div className="container mx-auto px-4 md:px-6 max-w-[1600px] h-14 flex items-center justify-between gap-3 md:gap-4">
         {isSelectMode ? (
-          <div className="flex items-center gap-4 flex-1 animate-in slide-in-from-left-2">
-            <Button variant="ghost" size="sm" onClick={onToggleSelect}>
-              <X className="mr-2 h-4 w-4" /> Cancel
+          // SELECT MODE (Active)
+          <div className="flex items-center gap-2 md:gap-4 flex-1 animate-in slide-in-from-left-2">
+            <Button variant="ghost" size="sm" onClick={onToggleSelect} className="px-2 md:px-3">
+              <X className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Cancel</span>
             </Button>
-            <span className="text-sm font-medium text-muted-foreground">
-              {selectedCount} selected
+
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              {selectedCount} <span className="hidden sm:inline">selected</span>
             </span>
+
             <div className="flex-1" />
+
             {selectedCount > 0 && (
-              <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                {isDeleting ? 'Deleting...' : 'Delete Selected'}
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={onDelete}
+                disabled={isDeleting}
+                className="px-2 md:px-3"
+              >
+                <Trash2 className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">{isDeleting ? 'Deleting...' : 'Delete'}</span>
               </Button>
             )}
           </div>
         ) : (
+          // NORMAL MODE
           <>
-            <div className="flex-1 max-w-md">
-              {/* Using your component with h-9 to fit the toolbar */}
-              <Search placeholder="Search snippets..." className="h-9" />
+            <div className="flex-1 max-w-md min-w-0">
+              <Search placeholder="Search..." className="h-9" />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 variant={isSelectMode ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={onToggleSelect}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground px-2 md:px-3"
               >
-                <CheckSquare className="mr-2 h-4 w-4" />
-                Select
+                <CheckSquare className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Select</span>
               </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2">
+                  <Button variant="outline" size="sm" className="h-9 gap-2 px-2 md:px-3">
                     <Filter className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Filter</span>
                   </Button>
