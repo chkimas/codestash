@@ -21,9 +21,13 @@ const geistMono = Geist_Mono({
 })
 
 export const viewport: Viewport = {
-  themeColor: SEO.THEME_COLOR,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: 'black' }
+  ],
   width: 'device-width',
-  initialScale: 1
+  initialScale: 1,
+  maximumScale: 1
 }
 
 export const metadata: Metadata = {
