@@ -110,7 +110,7 @@ A fully functional admin panel built with real moderation workflows:
 
 ---
 
-## 🧱 Tech Stack (Intentional Choices)
+## 🧱 Tech Stack
 
 | Layer     | Tech                    | Why                                  |
 | --------- | ----------------------- | ------------------------------------ |
