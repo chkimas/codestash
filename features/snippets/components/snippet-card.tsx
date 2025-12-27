@@ -23,8 +23,6 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 
 interface SnippetCardProps {
-  // FIX: Use the base Snippet type directly.
-  // Ensure 'author_username?: string' is added to your type definition in 'lib/definitions.ts'
   snippet: Snippet
   currentUserId?: string | null
 }
@@ -35,8 +33,8 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
   const [mounted, setMounted] = useState(false)
 
   const [isCopied, setIsCopied] = useState(false)
-  const [isFavorited, setIsFavorited] = useState(snippet.is_favorited || false)
-  const [favCount, setFavCount] = useState(Number(snippet.favorite_count || 0))
+  const [isFavorited, setIsFavorited] = useState(snippet.is_favorited ?? false)
+  const [favCount, setFavCount] = useState(Number(snippet.favorite_count ?? 0))
 
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 0)
@@ -44,7 +42,8 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
   }, [])
 
   const isOwner = currentUserId === snippet.user_id
-  const dateStr = snippet.updated_at || snippet.created_at
+  // Fix: Null-safe date selection with guaranteed fallback
+  const dateStr = snippet.updated_at ?? snippet.created_at ?? new Date().toISOString()
 
   const handleCardClick = () => router.push(`/library/${snippet.id}`)
 
@@ -94,8 +93,7 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
 
   const syntaxTheme = mounted && resolvedTheme === 'dark' ? oneDark : oneLight
 
-  // --- ROBUST LINK LOGIC ---
-  // If author_username is undefined/null, it falls back to the ID link
+  // Robust link logic
   const profileLink = snippet.author_username
     ? `/u/${snippet.author_username}`
     : `/u/${snippet.user_id}`
@@ -219,6 +217,7 @@ export function SnippetCard({ snippet, currentUserId }: SnippetCardProps) {
           <span className="text-[10px] text-muted-foreground/40">/</span>
 
           <span className="text-xs text-muted-foreground/70 tabular-nums">
+            {/* Fix: Guaranteed non-null dateStr */}
             {formatDistanceToNow(new Date(dateStr), { addSuffix: true }).replace('about ', '')}
           </span>
         </div>

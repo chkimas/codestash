@@ -19,6 +19,7 @@ import {
 import { differenceInDays, differenceInMonths, differenceInYears } from 'date-fns'
 import { Metadata } from 'next'
 import { cn } from '@/lib/utils'
+import type { Database } from '@/types/supabase'
 
 interface ProfilePageProps {
   params: Promise<{
@@ -26,22 +27,14 @@ interface ProfilePageProps {
   }>
 }
 
-// Strict DB Row Type
-interface SnippetRow {
-  id: string
-  user_id: string
-  title: string
-  code: string
-  language: string
-  description: string | null
-  is_public: boolean
-  updated_at: string
-  created_at: string
-  users: { name: string; image: string | null; username: string | null } | null
+// Exact Supabase join result type (no extends - fixes parsing error)
+type SnippetWithRelations = Database['public']['Tables']['snippets']['Row'] & {
+  users: Pick<Database['public']['Tables']['users']['Row'], 'name' | 'image' | 'username'> | null
   favorites: { user_id: string }[]
 }
 
-function getMemberDuration(date: Date) {
+function getMemberDuration(createdAt: string): string {
+  const date = new Date(createdAt)
   const now = new Date()
   const years = differenceInYears(now, date)
   const months = differenceInMonths(now, date)
@@ -78,18 +71,18 @@ export default async function ProfilePage(props: ProfilePageProps) {
   } = await supabase.auth.getUser()
   const currentUserId = currentUser?.id ?? null
 
-  // 1. Get Profile
+  // 1. Get Profile - narrow created_at
   const { data: profile, error: profileError } = await supabase
     .from('users')
     .select('id, name, image, bio, created_at, username')
     .eq('username', username)
     .single()
 
-  if (profileError || !profile) {
+  if (profileError || !profile || !profile.created_at) {
     notFound()
   }
 
-  // 2. Get User's Public Snippets
+  // 2. Get User's Public Snippets with relations
   const { data: snippetData, error: snippetError } = await supabase
     .from('snippets')
     .select(
@@ -102,31 +95,32 @@ export default async function ProfilePage(props: ProfilePageProps) {
     .eq('user_id', profile.id)
     .eq('is_public', true)
     .order('created_at', { ascending: false })
-    .returns<SnippetRow[]>()
 
   if (snippetError) {
     console.error('Profile Snippets Error:', snippetError)
   }
 
-  // 3. Transform Data
-  const snippets: Snippet[] = (snippetData || []).map((item) => ({
-    id: item.id,
-    user_id: item.user_id,
-    title: item.title,
-    code: item.code,
-    language: item.language as LanguageValue,
-    description: item.description,
-    is_public: item.is_public,
-    updated_at: item.updated_at,
-    created_at: item.created_at,
-    author_name: item.users?.name || 'Anonymous',
-    author_image: item.users?.image || undefined,
-    author_username: item.users?.username || '',
-    is_favorited: item.favorites?.some((f) => f.user_id === currentUserId) || false,
-    favorite_count: item.favorites?.length || 0
-  }))
+  // 3. Safe transform with explicit null checks - fixes type overlap error
+  const snippets: Snippet[] = ((snippetData as unknown as SnippetWithRelations[]) || []).map(
+    (item) => ({
+      id: item.id,
+      user_id: item.user_id,
+      title: item.title,
+      code: item.code,
+      language: item.language as LanguageValue,
+      description: item.description ?? null,
+      is_public: Boolean(item.is_public),
+      updated_at: item.updated_at ?? item.created_at ?? new Date().toISOString(),
+      created_at: item.created_at ?? new Date().toISOString(),
+      author_name: item.users?.name ?? 'Anonymous',
+      author_image: item.users?.image ?? undefined,
+      author_username: item.users?.username ?? '',
+      is_favorited: item.favorites?.some((f) => f.user_id === currentUserId) ?? false,
+      favorite_count: item.favorites?.length ?? 0
+    })
+  )
 
-  const totalFavorites = snippets.reduce((acc, snippet) => acc + (snippet.favorite_count || 0), 0)
+  const totalFavorites = snippets.reduce((acc, snippet) => acc + (snippet.favorite_count ?? 0), 0)
   const memberSince = new Date(profile.created_at)
   const joinYear = memberSince.getFullYear().toString()
 
@@ -149,12 +143,15 @@ export default async function ProfilePage(props: ProfilePageProps) {
       label: 'Member Since',
       value: joinYear,
       icon: CalendarDays,
-      description: `${getMemberDuration(memberSince)} with us`,
+      description: `${getMemberDuration(profile.created_at)} with us`,
       accent: 'text-foreground'
     }
   ]
 
-  const getRank = (count: number) => {
+  type Stat = (typeof stats)[number]
+  type Rank = { label: string; icon: React.ComponentType<{ className?: string }>; color: string }
+
+  const getRank = (count: number): Rank => {
     if (count >= 20)
       return {
         label: 'Code Architect',
@@ -184,6 +181,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header unchanged */}
       <div className="relative border-b border-border/40 bg-muted/10 dark:bg-background overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
@@ -191,8 +189,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
             backgroundImage: 'radial-gradient(#888 1px, transparent 1px)',
             backgroundSize: '24px 24px'
           }}
-        ></div>
-
+        />
         <div className="absolute inset-0 bg-linear-to-b from-background/0 via-transparent to-background pointer-events-none" />
 
         <div className="container max-w-6xl mx-auto px-6 relative">
@@ -258,7 +255,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-2xl">
-                  {stats.map((stat) => (
+                  {stats.map((stat: Stat) => (
                     <div key={stat.label} className="group relative">
                       <div className="relative bg-card/50 dark:bg-card/20 backdrop-blur-sm border border-border/50 rounded-2xl p-5 transition-all duration-300 hover:border-border hover:shadow-sm hover:-translate-y-0.5">
                         <div className="flex items-center justify-between mb-3">
@@ -283,6 +280,7 @@ export default async function ProfilePage(props: ProfilePageProps) {
         </div>
       </div>
 
+      {/* Content unchanged */}
       <div className="container max-w-6xl mx-auto px-6 py-16">
         <div className="mb-14">
           <div className="flex items-center justify-between mb-8">
