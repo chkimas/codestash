@@ -1,4 +1,3 @@
-// app/admin/users/ban-user-form.tsx (Type fixed)
 'use client'
 
 import { useState } from 'react'

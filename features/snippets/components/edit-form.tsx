@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { CreateSnippetSchema, type Snippet } from '@/lib/definitions'
+import { Snippet } from '@/lib/definitions'
 import { PROGRAMMING_LANGUAGES } from '@/lib/constants'
 import { updateSnippet } from '@/features/snippets/actions'
 import { getLanguageIcon } from '@/components/icons'
@@ -34,7 +34,16 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type FormData = z.infer<typeof CreateSnippetSchema>
+// Exact schema matching CreateSnippetSchema structure
+const EditSnippetSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(60, 'Title must be less than 60 characters'),
+  code: z.string().min(10, 'Code snippet is too short').max(10000, 'Code snippet is too large'),
+  language: z.string().min(1, 'Language is required'),
+  description: z.string().max(500, 'Description must be less than 500 characters').optional(),
+  is_public: z.boolean()
+})
+
+type FormData = z.infer<typeof EditSnippetSchema>
 
 export default function EditSnippetForm({ snippet }: { snippet: Snippet }) {
   const [isPending, startTransition] = useTransition()
@@ -42,23 +51,23 @@ export default function EditSnippetForm({ snippet }: { snippet: Snippet }) {
   const [open, setOpen] = useState(false)
 
   const form = useForm<FormData>({
-    resolver: zodResolver(CreateSnippetSchema),
+    resolver: zodResolver(EditSnippetSchema),
     defaultValues: {
       title: snippet.title,
       code: snippet.code,
       language: snippet.language,
       description: snippet.description ?? '',
-      is_public: snippet.is_public
+      is_public: Boolean(snippet.is_public)
     }
   })
 
   const onSubmit = (values: FormData) => {
     setError(null)
     startTransition(async () => {
-      const result = await updateSnippet(snippet.id, values)
-
-      if (!result.success) {
-        setError(result.message)
+      try {
+        await updateSnippet(snippet.id, values)
+      } catch {
+        setError('Failed to update snippet')
       }
     })
   }
