@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import type { Database } from '@/types/supabase'
 import {
   Table,
   TableBody,
@@ -10,6 +11,10 @@ import {
 import { AdminSnippetRow } from './snippet-row'
 import Search from '@/features/snippets/components/search'
 
+type SnippetWithProfile = Database['public']['Tables']['snippets']['Row'] & {
+  profiles: Pick<Database['public']['Tables']['users']['Row'], 'username' | 'email'> | null
+}
+
 export default async function AdminSnippetsPage({
   searchParams
 }: {
@@ -17,7 +22,7 @@ export default async function AdminSnippetsPage({
 }) {
   const params = await searchParams
   const query = params.query || ''
-  const supabase = await createClient()
+  const supabase = await createAdminClient()
 
   const orConditions = [`title.ilike.%${query}%`, `language.ilike.%${query}%`]
 
@@ -49,11 +54,7 @@ export default async function AdminSnippetsPage({
     dbQuery = dbQuery.or(orConditions.join(','))
   }
 
-  const { data: snippets, error } = await dbQuery
-
-  if (error) {
-    console.error('Admin Snippets Error:', JSON.stringify(error, null, 2))
-  }
+  const { data: snippets = [] } = await dbQuery
 
   return (
     <div className="space-y-6">
@@ -78,9 +79,10 @@ export default async function AdminSnippetsPage({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {snippets && snippets.length > 0 ? (
-              snippets.map((snippet) => <AdminSnippetRow key={snippet.id} snippet={snippet} />)
-            ) : (
+            {(snippets ?? []).map((snippet) => (
+              <AdminSnippetRow key={snippet.id} snippet={snippet as SnippetWithProfile} />
+            ))}
+            {(snippets ?? []).length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No snippets found matching &quot;{query}&quot;

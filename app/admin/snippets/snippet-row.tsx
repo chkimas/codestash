@@ -1,33 +1,25 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation' // <--- 1. Import Router
+import { useRouter } from 'next/navigation'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Trash2, Eye, Loader2, Globe, Lock } from 'lucide-react'
-import { deleteSnippetAsAdmin } from '../actions' // Ensure path is correct
+import { deleteSnippetAsAdmin } from '../actions'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
+import type { Database } from '@/types/supabase'
 
-type ProfileData = {
-  username: string | null
+// Intersection type instead of extends
+type SnippetWithProfile = Database['public']['Tables']['snippets']['Row'] & {
+  profiles: Pick<Database['public']['Tables']['users']['Row'], 'username' | 'email'> | null
 }
 
-interface AdminSnippet {
-  id: string
-  title: string
-  language: string
-  is_public: boolean
-  created_at: string
-  profiles: ProfileData | ProfileData[] | null
-}
-
-export function AdminSnippetRow({ snippet }: { snippet: AdminSnippet }) {
+export function AdminSnippetRow({ snippet }: { snippet: SnippetWithProfile }) {
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
-  // New state to hide the row instantly without waiting for server
   const [isDeleted, setIsDeleted] = useState(false)
 
   const handleDelete = async () => {
@@ -40,19 +32,9 @@ export function AdminSnippetRow({ snippet }: { snippet: AdminSnippet }) {
     setIsDeleting(true)
 
     try {
-      const result = await deleteSnippetAsAdmin(snippet.id)
-
-      if (result.error) {
-        throw new Error(result.error)
-      }
-
+      await deleteSnippetAsAdmin(snippet.id)
       toast.success('Snippet deleted successfully')
-
-      // 2. Optimistic Update: Hide row immediately
       setIsDeleted(true)
-
-      // 3. Background Refresh: Tells Next.js to re-run the server component
-      // to get the fresh list (ensures counts/pagination update correctly)
       router.refresh()
     } catch (error) {
       console.error(error)
@@ -61,12 +43,8 @@ export function AdminSnippetRow({ snippet }: { snippet: AdminSnippet }) {
     }
   }
 
-  // Handle case where profiles might be an array (Supabase quirks) or null
-  const username = Array.isArray(snippet.profiles)
-    ? snippet.profiles[0]?.username
-    : snippet.profiles?.username || 'unknown'
+  const username = snippet.profiles?.username || 'unknown'
 
-  // If deleted, render nothing (effectively removing it from the table)
   if (isDeleted) return null
 
   return (
@@ -81,7 +59,7 @@ export function AdminSnippetRow({ snippet }: { snippet: AdminSnippet }) {
         </Badge>
       </TableCell>
       <TableCell>
-        {snippet.is_public ? (
+        {Boolean(snippet.is_public) ? (
           <div className="flex items-center gap-1.5">
             <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50 px-1.5">
               Public
@@ -98,11 +76,10 @@ export function AdminSnippetRow({ snippet }: { snippet: AdminSnippet }) {
         )}
       </TableCell>
       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-        {formatDistanceToNow(new Date(snippet.created_at), { addSuffix: true })}
+        {formatDistanceToNow(new Date(snippet.created_at!), { addSuffix: true })}
       </TableCell>
       <TableCell className="text-right space-x-2">
         <Button variant="ghost" size="sm" asChild>
-          {/* Link to the public view of the snippet */}
           <Link href={`/library/${snippet.id}`} target="_blank">
             <Eye className="h-4 w-4" />
             <span className="sr-only">View</span>

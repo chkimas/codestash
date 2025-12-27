@@ -9,13 +9,12 @@ import {
 } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { UserActionsCell } from './ban-user-form' // <--- Correct Import
+import { UserActionsCell } from './ban-user-form'
 
 export default async function AdminUsersPage() {
   const supabase = await createAdminClient()
 
-  // Select fields
-  const { data: users } = await supabase
+  const { data: users = [] } = await supabase
     .from('users')
     .select('*')
     .order('created_at', { ascending: false })
@@ -39,15 +38,15 @@ export default async function AdminUsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users?.map((user) => {
+            {(users ?? []).map((user) => {
               const isTempBanned = user.banned_until && new Date(user.banned_until) > new Date()
-              const isBanned = user.is_banned || isTempBanned
+              const isBanned = Boolean(user.is_banned) || isTempBanned
 
               return (
                 <TableRow key={user.id}>
                   <TableCell>
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={user.image} />
+                      <AvatarImage src={user.image || undefined} />
                       <AvatarFallback>{user.name?.[0] || '?'}</AvatarFallback>
                     </Avatar>
                   </TableCell>

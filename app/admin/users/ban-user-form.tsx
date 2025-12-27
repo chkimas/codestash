@@ -1,3 +1,4 @@
+// app/admin/users/ban-user-form.tsx (Type fixed)
 'use client'
 
 import { useState } from 'react'
@@ -27,16 +28,10 @@ import {
 import { updateUserBan, type BanDuration } from '../actions'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import type { Database } from '@/types/supabase'
 
-// 1. Define the type here
-interface AdminUser {
-  id: string
-  username: string | null
-  is_banned: boolean | null
-  banned_until: string | null
-}
+type AdminUser = Database['public']['Tables']['users']['Row']
 
-// 2. Apply it to the component props
 export function UserActionsCell({ user }: { user: AdminUser }) {
   const [open, setOpen] = useState(false)
   const [duration, setDuration] = useState<BanDuration>('24h')
