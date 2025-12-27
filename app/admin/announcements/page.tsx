@@ -1,3 +1,4 @@
+// app/admin/announcements/page.tsx (Final fix - explicit non-null assertion)
 import { createAdminClient } from '@/lib/supabase/server'
 import {
   Table,
@@ -22,8 +23,7 @@ import { Megaphone } from 'lucide-react'
 
 export default async function AnnouncementsPage() {
   const supabase = await createAdminClient()
-
-  const { data: announcements } = await supabase
+  const { data: announcements = [] } = await supabase
     .from('announcements')
     .select('*')
     .order('created_at', { ascending: false })
@@ -39,14 +39,7 @@ export default async function AnnouncementsPage() {
           <Megaphone className="h-4 w-4" /> New Announcement
         </h2>
 
-        {/* FIX: Wrapped the action to satisfy TypeScript */}
-        <form
-          action={async (formData) => {
-            'use server'
-            await createAnnouncement(formData)
-          }}
-          className="flex gap-3 items-end"
-        >
+        <form action={createAnnouncement} className="flex gap-3 items-end">
           <div className="flex-1 space-y-2">
             <Input
               name="message"
@@ -82,10 +75,10 @@ export default async function AnnouncementsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {announcements?.map((item) => (
+            {(announcements ?? []).map((item) => (
               <AnnouncementRow key={item.id} item={item} />
             ))}
-            {announcements?.length === 0 && (
+            {(announcements ?? []).length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
                   No announcements found.
