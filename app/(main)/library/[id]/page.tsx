@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Snippet } from '@/lib/definitions'
+import type { Database } from '@/types/supabase'
 import { deleteSnippet } from '@/features/snippets/actions'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -23,7 +23,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { BackButton } from '@/components/back-button'
 import { Metadata } from 'next'
-import { isLanguageValue } from '@/lib/constants'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -70,7 +69,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
         title: snippet.title,
         description: description,
         type: 'article',
-        publishedTime: snippet.created_at,
+        publishedTime: snippet.created_at || undefined,
         authors: [userName],
         tags: [snippet.language, 'code snippet', 'development']
       },
@@ -105,84 +104,57 @@ export default async function SnippetDetailPage(props: Props) {
       error: authError
     } = await supabase.auth.getUser()
 
-    if (authError) {
+    if (authError && authError.name !== 'AuthSessionMissingError') {
       console.error('[AUTH_ERROR]', authError)
     }
 
     const userId = user?.id ?? null
 
-    // Define proper types for the response
-    type SnippetWithRelations = {
-      id: string
-      user_id: string
-      title: string
-      code: string
-      language: string
-      description: string | null
-      is_public: boolean
-      updated_at: string
-      created_at: string
-      users: {
-        name: string
-        image: string | null
-      } | null
-      favorites: Array<{ user_id: string }>
-    }
-
     const { data: snippets, error } = await supabase
       .from('snippets')
       .select(
         `
-        *,
-        users!user_id(
-          name,
-          image
-        ),
-        favorites!left(
-          user_id
-        )
-      `
+    *,
+    users!user_id(
+      name,
+      image,
+      username
+    )
+  `
       )
       .eq('id', id)
-      .or(`user_id.eq.${userId},is_public.eq.true`)
+      .or(userId ? `user_id.eq.${userId},is_public.eq.true` : `is_public.eq.true`)
       .limit(1)
-      .returns<SnippetWithRelations[]>()
 
     if (error || !snippets || snippets.length === 0) {
       console.error('[SNIPPET_FETCH_ERROR]', { id, error, userId })
       notFound()
     }
 
-    const snippetData = snippets[0]
+    const snippetData = snippets[0]!
 
-    // Type-safe transformation
-    const snippet: Snippet = {
-      id: snippetData.id,
-      user_id: snippetData.user_id,
-      title: snippetData.title,
-      code: snippetData.code,
-      language: isLanguageValue(snippetData.language) ? snippetData.language : 'javascript',
-      description: snippetData.description,
-      is_public: snippetData.is_public,
-      updated_at: snippetData.updated_at,
-      created_at: snippetData.created_at,
-      author_name: snippetData.users?.name || 'Anonymous',
-      author_image: snippetData.users?.image || undefined,
-      is_favorited: snippetData.favorites?.some((f) => f.user_id === userId) || false,
-      favorite_count: snippetData.favorites?.length || 0
+    type SnippetWithRelations = Database['public']['Tables']['snippets']['Row'] & {
+      users: {
+        name: string | null
+        image: string | null
+        username: string | null
+      } | null
+      favorites?: Array<{ user_id: string }>
     }
 
-    const authorInitial = snippet.author_name?.charAt(0).toUpperCase() || '?'
+    const snippet: SnippetWithRelations = snippetData
+
+    const authorInitial = snippet.users?.name?.charAt(0)?.toUpperCase() || '?'
     const isOwner = userId === snippet.user_id
 
-    // Structured data for SEO (truncate if code is too large)
+    // Structured data for SEO
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'SoftwareSourceCode',
       name: snippet.title,
       author: {
         '@type': 'Person',
-        name: snippet.author_name || 'Anonymous'
+        name: snippet.users?.name || 'Anonymous'
       },
       programmingLanguage: snippet.language,
       text: snippet.code.length > 5000 ? snippet.code.substring(0, 5000) + '...' : snippet.code,
@@ -197,7 +169,7 @@ export default async function SnippetDetailPage(props: Props) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {/* Sticky Header / Breadcrumb */}
+        {/* Sticky Header */}
         <div className="sticky top-0 z-30 w-full bg-background/80 backdrop-blur-sm border-b border-border/40">
           <div className="container mx-auto px-6 h-14 flex items-center">
             <BackButton />
@@ -226,17 +198,17 @@ export default async function SnippetDetailPage(props: Props) {
                 </TooltipProvider>
 
                 <Link
-                  href={`/u/${snippet.user_id}`}
+                  href={`/u/${snippet.users?.username || snippet.user_id}`}
                   className="flex items-center gap-2 group transition-opacity hover:opacity-80"
                 >
                   <Avatar className="h-5 w-5 border border-border">
-                    <AvatarImage src={snippet.author_image || undefined} />
+                    <AvatarImage src={snippet.users?.image || undefined} />
                     <AvatarFallback className="text-[9px] bg-muted text-muted-foreground font-medium">
                       {authorInitial}
                     </AvatarFallback>
                   </Avatar>
                   <span className="font-medium text-foreground group-hover:text-primary group-hover:underline decoration-primary/30 underline-offset-4 transition-colors">
-                    {snippet.author_name || 'Anonymous'}
+                    {snippet.users?.name || 'Anonymous'}
                   </span>
                 </Link>
 
@@ -245,23 +217,25 @@ export default async function SnippetDetailPage(props: Props) {
                 {snippet.updated_at && snippet.updated_at !== snippet.created_at ? (
                   <div
                     className="flex items-center gap-1.5 text-muted-foreground"
-                    title={`Originally created: ${new Date(snippet.created_at).toLocaleString()}`}
+                    title={`Originally created: ${new Date(
+                      snippet.created_at || ''
+                    ).toLocaleString()}`}
                   >
                     <Clock className="h-3.5 w-3.5" />
                     <span>
                       Updated{' '}
-                      {formatDistanceToNow(new Date(snippet.updated_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(snippet.updated_at || ''), { addSuffix: true })}
                     </span>
                   </div>
                 ) : (
                   <div
                     className="flex items-center gap-1.5 text-muted-foreground"
-                    title={new Date(snippet.created_at).toLocaleString()}
+                    title={new Date(snippet.created_at || '').toLocaleString()}
                   >
                     <Calendar className="h-3.5 w-3.5" />
                     <span>
                       {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(
-                        new Date(snippet.created_at)
+                        new Date(snippet.created_at || '')
                       )}
                     </span>
                   </div>

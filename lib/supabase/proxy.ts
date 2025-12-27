@@ -1,8 +1,22 @@
+// lib/supabase/proxy.ts
 import { createServerClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isProtectedPath, isGuestOnlyPath, isPublicPath } from '@/lib/constants'
+import type { Database } from '@/types/supabase'
 
-export async function updateSession(request: NextRequest) {
+function getPublicSupabaseEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !anonKey) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set')
+  }
+
+  return { url, anonKey }
+}
+
+export async function updateSession(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname
 
   if (isPublicPath(pathname)) {
@@ -10,29 +24,26 @@ export async function updateSession(request: NextRequest) {
   }
 
   let supabaseResponse = NextResponse.next({ request })
+  const { url, anonKey } = getPublicSupabaseEnv()
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value)
-          })
+  const supabase: SupabaseClient<Database> = createServerClient<Database>(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value)
+        })
 
-          supabaseResponse = NextResponse.next({ request })
+        supabaseResponse = NextResponse.next({ request })
 
-          cookiesToSet.forEach(({ name, value, options }) => {
-            supabaseResponse.cookies.set(name, value, options)
-          })
-        }
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, options)
+        })
       }
     }
-  )
+  })
 
   try {
     const {
@@ -40,19 +51,14 @@ export async function updateSession(request: NextRequest) {
       error
     } = await supabase.auth.getUser()
 
-    // --- NOISE FILTER START ---
     if (error) {
-      // Supabase throws 'AuthSessionMissingError' when no session is found.
-      // This is expected for guests/prefetching, so we ignore it to clean up the terminal.
       const isIgnorableError =
         error.name === 'AuthSessionMissingError' || error.message?.includes('Auth session missing')
 
-      // Only log if it is a REAL system error
       if (!isIgnorableError) {
         console.error('Auth error in proxy:', error)
       }
     }
-    // --- NOISE FILTER END ---
 
     if (user) {
       const { data: dbUser } = await supabase
@@ -69,18 +75,19 @@ export async function updateSession(request: NextRequest) {
 
         let msg = 'Your account has been suspended permanently.'
         if (isTemporarilyBanned && dbUser?.banned_until) {
-          const date = new Date(dbUser.banned_until).toLocaleDateString()
-          const time = new Date(dbUser.banned_until).toLocaleTimeString([], {
+          const bannedDate = new Date(dbUser.banned_until)
+          const date = bannedDate.toLocaleDateString()
+          const time = bannedDate.toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit'
           })
           msg = `Your account is suspended until ${date} at ${time}.`
         }
 
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        url.searchParams.set('error', msg)
-        return NextResponse.redirect(url)
+        const urlClone = request.nextUrl.clone()
+        urlClone.pathname = '/login'
+        urlClone.searchParams.set('error', msg)
+        return NextResponse.redirect(urlClone)
       }
 
       request.headers.set('x-user-id', user.id)
@@ -88,16 +95,16 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (!user && isProtectedPath(pathname)) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      url.searchParams.set('next', pathname)
-      return NextResponse.redirect(url)
+      const urlClone = request.nextUrl.clone()
+      urlClone.pathname = '/login'
+      urlClone.searchParams.set('next', pathname)
+      return NextResponse.redirect(urlClone)
     }
 
     if (user && isGuestOnlyPath(pathname)) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/library'
-      return NextResponse.redirect(url)
+      const urlClone = request.nextUrl.clone()
+      urlClone.pathname = '/library'
+      return NextResponse.redirect(urlClone)
     }
   } catch (error) {
     console.error('Unexpected error in updateSession:', error)

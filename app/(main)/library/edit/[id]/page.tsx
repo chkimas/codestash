@@ -1,9 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Snippet } from '@/lib/definitions'
 import EditSnippetForm from '@/features/snippets/components/edit-form'
 import { Card, CardContent } from '@/components/ui/card'
-import { isLanguageValue } from '@/lib/constants'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -38,18 +36,6 @@ export default async function EditSnippetPage(props: Props) {
     notFound()
   }
 
-  const snippet: Snippet = {
-    id: snippetData.id,
-    user_id: snippetData.user_id,
-    title: snippetData.title,
-    code: snippetData.code,
-    language: isLanguageValue(snippetData.language) ? snippetData.language : 'javascript',
-    description: snippetData.description,
-    is_public: snippetData.is_public,
-    updated_at: snippetData.updated_at,
-    created_at: snippetData.created_at
-  }
-
   return (
     <main className="min-h-screen bg-background py-10 px-4 md:px-6">
       <div className="mx-auto max-w-2xl">
@@ -60,7 +46,7 @@ export default async function EditSnippetPage(props: Props) {
 
         <Card className="border-border/50 shadow-sm bg-card">
           <CardContent className="pt-6">
-            <EditSnippetForm snippet={snippet} />
+            <EditSnippetForm snippet={snippetData} />
           </CardContent>
         </Card>
       </div>

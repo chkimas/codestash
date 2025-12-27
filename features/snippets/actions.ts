@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { CreateSnippetSchema } from '@/lib/definitions'
 import { APP_LIMITS, ERROR_MESSAGES } from '@/lib/constants'
 
-// Types - Fixed to be more flexible
+// Local types (used until definitions.ts is fully updated)
 type SuccessResult<T = undefined> = {
   success: true
   data?: T
@@ -17,11 +17,10 @@ type ErrorResult = {
   success: false
   message: string
   errors?: Record<string, string[]>
-  error?: string // For compatibility with existing code
+  error?: string
 }
 
 type ActionResult<T = undefined> = SuccessResult<T> | ErrorResult
-
 type SnippetFormData = z.infer<typeof CreateSnippetSchema>
 
 // Rate limiting (in-memory for free tier)
@@ -219,7 +218,7 @@ export async function toggleFavorite(
       .single()
 
     if (snippetError) throw snippetError
-    if (!snippet.is_public && snippet.user_id !== user.id) {
+    if (!snippet!.is_public && snippet!.user_id !== user.id) {
       return createErrorResult(ERROR_MESSAGES.SNIPPET.ACCESS_DENIED)
     }
 

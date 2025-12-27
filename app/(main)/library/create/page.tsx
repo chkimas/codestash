@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation' // <--- 1. Import useRouter
+import { useRouter } from 'next/navigation'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { CreateSnippetSchema } from '@/lib/definitions'
 import { PROGRAMMING_LANGUAGES } from '@/lib/constants'
@@ -35,12 +35,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { toast } from 'sonner' // <--- 2. Import toast (if you have it installed)
+import { toast } from 'sonner'
 
 type FormData = z.infer<typeof CreateSnippetSchema>
 
 export default function CreateSnippetPage() {
-  const router = useRouter() // <--- 3. Initialize router
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -50,7 +50,7 @@ export default function CreateSnippetPage() {
     defaultValues: {
       title: '',
       code: '',
-      language: 'javascript', // Default is good
+      language: 'javascript',
       description: '',
       is_public: false
     }
@@ -63,23 +63,15 @@ export default function CreateSnippetPage() {
       try {
         const result = await createSnippet(values)
 
-        if (!result) {
-          setError('An unexpected error occurred.')
-          return
-        }
-
         if (!result.success) {
           setError(result.message || 'Failed to create snippet')
           toast.error(result.message || 'Failed to create snippet')
           return
         }
 
-        // --- 4. SUCCESS HANDLING ---
         toast.success('Snippet created successfully!')
-
-        // Redirect to library (or the new snippet)
         router.push('/library')
-        router.refresh() // Ensure the library data refreshes
+        router.refresh()
       } catch (err) {
         setError('Something went wrong. Please try again.')
         console.error(err)

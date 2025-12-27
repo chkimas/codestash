@@ -2,14 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { RegisterSchema, UsernameAvailabilityResult } from '@/lib/definitions'
 import { ERROR_MESSAGES } from '@/lib/constants'
 import { headers } from 'next/headers'
 
 // --- Types ---
-
 type SuccessResult<T = undefined> = {
   success: true
   data?: T
@@ -34,7 +33,6 @@ export type AuthState =
   | undefined
 
 // --- Rate Limiting ---
-
 const authAttempts = new Map<string, { count: number; lastAttempt: number }>()
 const RESET_INTERVAL = 15 * 60 * 1000
 
@@ -66,7 +64,6 @@ function checkRateLimit(identifier: string, action: 'login' | 'register' | 'rese
 }
 
 // --- Helpers ---
-
 function createErrorResult(message: string, errors?: Record<string, string[]>): ErrorResult {
   return {
     success: false,
@@ -95,7 +92,6 @@ async function getIp() {
 const EmailSchema = z.string().email({ message: 'Invalid email address' })
 
 // --- Actions ---
-
 export async function login(prevState: AuthState, formData: FormData): Promise<AuthState> {
   const supabase = await createClient()
   const ip = await getIp() // <--- Capture IP
@@ -267,7 +263,8 @@ export async function registerUser(
     }
 
     if (authData.user) {
-      await supabase.from('users').update({ last_ip: ip }).eq('id', authData.user.id)
+      const adminSupabase = await createAdminClient()
+      await adminSupabase.from('users').update({ last_ip: ip }).eq('id', authData.user.id)
     }
 
     return createSuccessResult(undefined, 'Check your email to verify your account.')

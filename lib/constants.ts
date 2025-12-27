@@ -48,7 +48,7 @@ export const LANGUAGE_VALUES = PROGRAMMING_LANGUAGES.map(
 ) as (typeof PROGRAMMING_LANGUAGES)[number]['value'][]
 
 // Route Protection
-export const PROTECTED_PATHS = ['/library', '/settings', '/create'] as const
+export const PROTECTED_PATHS = ['/settings', '/create'] as const
 export const GUEST_ONLY_PATHS = [
   '/login',
   '/register',
@@ -56,7 +56,7 @@ export const GUEST_ONLY_PATHS = [
   '/update-password',
   '/verify-mfa'
 ] as const
-export const PUBLIC_PATHS = ['/', '/u', '/explore'] as const
+export const PUBLIC_PATHS = ['/', '/u', '/explore', '/library'] as const
 
 // Application Limits
 export const APP_LIMITS = {

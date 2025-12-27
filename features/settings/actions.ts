@@ -325,44 +325,46 @@ export async function deleteAccount(
   void formData
 
   const supabase = await createClient()
-
   const {
     data: { user }
   } = await supabase.auth.getUser()
+
   if (!user) {
     return { error: 'Unauthorized' }
   }
 
   try {
-    // Use Supabase admin API for account deletion
-    // Note: This requires SUPABASE_SERVICE_ROLE_KEY
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Service role key not configured')
+    // 1. Delete snippets
+    await supabase.from('snippets').delete().eq('user_id', user.id)
+
+    // 2. Delete favorites
+    await supabase.from('favorites').delete().eq('user_id', user.id)
+
+    // 3. Delete avatar
+    const { data: userData } = await supabase
+      .from('users')
+      .select('image')
+      .eq('id', user.id)
+      .single()
+
+    if (userData?.image?.includes('avatars/')) {
+      const filePath = userData.image.split('/avatars/')[1]
+      await supabase.storage.from('avatars').remove([filePath!])
     }
 
-    const { createClient: createAdminClient } = await import('@supabase/supabase-js')
-    const adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    // 4. Delete user row
+    const { error: deleteError } = await supabase.from('users').delete().eq('id', user.id)
 
-    const { error } = await adminClient.auth.admin.deleteUser(user.id)
-    if (error) throw error
+    if (deleteError) throw deleteError
 
-    // Sign out current session
-    await supabase.auth.signOut()
+    // 5. Global sign out
+    await supabase.auth.signOut({ scope: 'global' })
+
+    redirect('/login')
   } catch (error) {
     console.error('Delete Account Error:', error)
     return { error: 'Failed to delete account. Please try again.' }
   }
-
-  redirect('/login')
 }
 
 // MFA Functions
